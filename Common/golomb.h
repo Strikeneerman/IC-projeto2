@@ -2,6 +2,8 @@
 #include <stdexcept>
 #include "bitStream.h"  // Assumes a BitStream class is defined for bit manipulation
 
+using namespace std;
+
 class Golomb {
 private:
     int m;                           // Parameter for Golomb coding
@@ -11,7 +13,7 @@ public:
     // Constructor with parameter m and mode for negative values
     Golomb(int m, bool useInterleaving = false) : m(m), useInterleaving(useInterleaving) {
         if (m <= 0) {
-            throw std::invalid_argument("Parameter m must be greater than zero.");
+            throw invalid_argument("Parameter m must be greater than zero.");
         }
     }
 
@@ -28,7 +30,7 @@ public:
     // Encode function that writes Golomb code to a BitStream
     void encode(BitStream& stream, int value) {
         // Use zigzag encoding for interleaving mode or absolute value otherwise
-        int encodedValue = useInterleaving ? zigzagEncode(value) : std::abs(value);
+        int encodedValue = useInterleaving ? zigzagEncode(value) : abs(value);
         
         int q = encodedValue / m;
         int r = encodedValue % m;
@@ -40,7 +42,7 @@ public:
         stream.writeBit(0);  // Terminate unary part
 
         // Binary encoding of remainder r
-        int remainderBits = std::ceil(std::log2(m));
+        int remainderBits = ceil(log2(m));
         stream.writeBits(r, remainderBits);
 
         // For sign and magnitude mode, write an extra bit for sign if needed
@@ -60,7 +62,7 @@ public:
         }
 
         // Decode the binary part to get remainder r
-        int remainderBits = std::ceil(std::log2(m));
+        int remainderBits = ceil(log2(m));
         int r = stream.readBits(remainderBits);
 
         // Reconstruct the encoded value
