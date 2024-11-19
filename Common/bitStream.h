@@ -47,7 +47,7 @@ public:
             throw std::runtime_error("Stream not in write mode");
         }
 
-        buffer = (buffer << 1) | (bit ? 1 : 0);
+        buffer = (buffer) | ((bit ? 1 : 0) << (7 - bufferPos));
         bufferPos++;
 
         if (bufferPos == 8) {
