@@ -1,6 +1,6 @@
-#include "./SFML-2.6.1/include/SFML/Audio.hpp"
+#include "./SFML-2.6.2/include/SFML/Audio.hpp"
 
-#include <complex>
+#include <cmath>
 #include <filesystem>
 #include <iostream>
 #include <string>
@@ -48,7 +48,8 @@ void saveWav(const std::vector<sf::Int16> &samples, unsigned int sampleRate, uns
   }
 }
 
-void plotHistogram(const std::vector<double> &data, const std::string &title, int num_bins) {
+void saveHistogram(const std::vector<sf::Int16> &data, const std::string &title, int num_bins) {
+
   // Find the range of the data
   auto [min_it, max_it] = std::minmax_element(data.begin(), data.end());
   double min_val = *min_it;
@@ -88,7 +89,6 @@ void plotHistogram(const std::vector<double> &data, const std::string &title, in
   for (size_t i = 0; i < bins.size(); ++i) {
     outfile << bin_centers[i] << "," << bins[i] << "\n";
   }
-
   outfile.close();
 }
 
@@ -126,15 +126,43 @@ int process_input(int argc, char *argv[], std::string *file_path, std::string *o
   return print_usage(argv[0]);
 }
 
-int predictor_basic(int sample_n_1){
-    return sample_n_1;
+sf::Int16 predictor_basic(sf::Int16 sample_n_1) { return sample_n_1; }
+
+sf::Int16 predictor_taylor(int degree, const sf::Int16* recentSamples) {
+  // Start with the most recent sample
+  float predicted = recentSamples[0];
+
+  // Precompute factorial values
+  std::vector<int> factorial(degree + 1, 1);
+  for (int i = 1; i <= degree; ++i) {
+    factorial[i] = factorial[i - 1] * i;
+  }
+
+  // Compute Taylor terms
+  for (int n = 1; n <= degree; ++n) {
+    float nth_term = 0;
+    // Approximate nth derivative using finite differences (backward Euler method)
+    for (int i = 0; i <= n; ++i) {
+      int sign = (i % 2 == 0) ? 1 : -1;  // Alternating signs
+      nth_term += sign * (*(recentSamples - i)) * factorial[n] / (factorial[i] * factorial[n - i]);
+    }
+
+    // Add nth term to the prediction
+    predicted += nth_term / factorial[n];
+  }
+  return static_cast<sf::Int16>(std::round(predicted));
 }
 
 int main(int argc, char *argv[]) {
   std::string file_path, operation, compression_type;
   int bitrate;
 
+#if 0
   if (process_input(argc, argv, &file_path, &operation, &compression_type, &bitrate) == 1) return 1;
+#else
+    file_path = "./datasets/sample01.wav";
+#endif
+  // ============= LOAD FILE AND SPLIT CHANNELS ==================
 
   // Load the WAV file
   sf::SoundBuffer buffer;
@@ -143,20 +171,60 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
-  // Apply the predictor
+  // Read audio samples and basic info
+  const sf::Int16 *samples = buffer.getSamples();
+  std::size_t sampleCount = buffer.getSampleCount();
+  unsigned int channelCount = buffer.getChannelCount();
 
-  // Calculate the error (predicted-real)
+  // Copy samples into a vector
+  std::vector<sf::Int16> sampleVector(samples, samples + sampleCount);
 
-  // Based on the distribution of the error, calculate the ideal parameter m (comment this for a fixed m)
+  // Split the samples into their respective channels
+  std::vector<std::vector<sf::Int16>> channels(channelCount);
+  for (std::size_t i = 0; i < sampleCount; ++i) {
+    std::size_t channelIndex = i % channelCount;
+    channels[channelIndex].push_back(sampleVector[i]);
+  }
 
-  // Write header to output file with number of samples that will be coded and golomb m parameter
+  // =============== APPLY PREDICTOR AND CALCULATE RESIDUALS ==========================
 
-  // In a loop, block by block:
-    // For lossy, quantize the error by n bits
+  int taylor_degree = 5;
+  std::vector<std::vector<sf::Int16>> residuals(channelCount);
 
-    // Code with golomb
+  for (unsigned int channel = 0; channel < channelCount; ++channel) {
+    const std::vector<sf::Int16> &currentChannel = channels[channel];
+    std::vector<sf::Int16> &currentResiduals = residuals[channel];
+    currentResiduals.reserve(currentChannel.size());
 
-    // Calculate block bitrate, if needed, adjust n
+    for (std::size_t i = 0; i < currentChannel.size(); ++i) {
+      if (i <= taylor_degree) {
+        currentResiduals.push_back(currentChannel[i]);
+      } else {
+        sf::Int16 predicted = predictor_taylor(taylor_degree, &currentChannel[i - 1]);
+        sf::Int16 residual = currentChannel[i] - predicted;
+        currentResiduals.push_back(residual);
+      }
+    }
+    saveHistogram(currentResiduals, "residuals_taylor_" + std::to_string(taylor_degree), 64);
+  }
+
 
   printf("Hello!\n");
 }
+
+// Lossless:
+// Read file and separate channels
+// Predict and get residuals
+// Get optimal m
+// Write header with number of samples that will be coded, golomb m parameter, sampling frequency and channel count
+// Write residuals
+
+// Lossy:
+// Read file and separate channels
+// Write header without m
+// Go over the file in blocks
+//      Predict, get residuals, (quantize residuals), update source material
+//      Get optimal m
+//      Write frame header with m
+//      Write frame block data
+//      Calculate avg bitrate, (update quantization step)
