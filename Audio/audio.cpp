@@ -3,8 +3,10 @@
 #include <cmath>
 #include <filesystem>
 #include <iostream>
+#include <numeric>
 #include <string>
 #include <vector>
+#include <cmath> 
 
 #include "../Common/golomb.h"
 
@@ -49,7 +51,6 @@ void saveWav(const std::vector<sf::Int16> &samples, unsigned int sampleRate, uns
 }
 
 void saveHistogram(const std::vector<sf::Int16> &data, const std::string &title, int num_bins) {
-
   // Find the range of the data
   auto [min_it, max_it] = std::minmax_element(data.begin(), data.end());
   double min_val = *min_it;
@@ -128,7 +129,7 @@ int process_input(int argc, char *argv[], std::string *file_path, std::string *o
 
 sf::Int16 predictor_basic(sf::Int16 sample_n_1) { return sample_n_1; }
 
-sf::Int16 predictor_taylor(int degree, const sf::Int16* recentSamples) {
+sf::Int16 predictor_taylor(int degree, const sf::Int16 *recentSamples) {
   // Start with the most recent sample
   float predicted = recentSamples[0];
 
@@ -153,6 +154,16 @@ sf::Int16 predictor_taylor(int degree, const sf::Int16* recentSamples) {
   return static_cast<sf::Int16>(std::round(predicted));
 }
 
+// 
+void writeHeader(BitStream& stream, int8_t channels, int16_t sampling_freq, int32_t num_samples){
+
+}
+
+void readHeader(BitStream& stream, int8_t &channels, int16_t &sampling_freq, int32_t &num_samples){
+
+}
+
+
 int main(int argc, char *argv[]) {
   std::string file_path, operation, compression_type;
   int bitrate;
@@ -160,7 +171,7 @@ int main(int argc, char *argv[]) {
 #if 0
   if (process_input(argc, argv, &file_path, &operation, &compression_type, &bitrate) == 1) return 1;
 #else
-    file_path = "./datasets/sample01.wav";
+  file_path = "./datasets/sample01.wav";
 #endif
   // ============= LOAD FILE AND SPLIT CHANNELS ==================
 
@@ -188,7 +199,7 @@ int main(int argc, char *argv[]) {
 
   // =============== APPLY PREDICTOR AND CALCULATE RESIDUALS ==========================
 
-  int taylor_degree = 5;
+  int taylor_degree = 3;
   std::vector<std::vector<sf::Int16>> residuals(channelCount);
 
   for (unsigned int channel = 0; channel < channelCount; ++channel) {
@@ -209,12 +220,29 @@ int main(int argc, char *argv[]) {
   }
 
 
+  // =============== WRITE A HEADER WITH METADATA =================
+  // ...
+
+  // =============== CALCULATE OPTIMAL GOLOMB M ===================
+  // m = ceil(-1/log2(1-p))
+  // p = 1/(E[x]+1)
+
+  int sum = std::accumulate(residuals[0].begin(), residuals[0].end(), 0);
+  double average = static_cast<double>(sum) / residuals[0].size();
+  double p = 1/(average+1);
+  int m = static_cast<int>(std::ceil(-1 / std::log2(1 - p)));
+
+  // =============== WRITE THE RESIDUALS TO THE FILE ==============
+  // ...
+
   printf("Hello!\n");
 }
 
+// Make golomb better for non power of 2 m (chekc photos on phone)
+
 // Lossless:
-// Read file and separate channels
-// Predict and get residuals
+// Read file and separate channels - done
+// Predict and get residuals - done
 // Get optimal m
 // Write header with number of samples that will be coded, golomb m parameter, sampling frequency and channel count
 // Write residuals
