@@ -47,6 +47,7 @@ vector<int> decodeIntegersFromFile(const string& binaryFilename, Golomb& golomb)
     }
   } catch (const runtime_error& e) {
     // End of file or decoding error, stop reading
+    cout << e.what() << endl;
   }
 
   return decodedIntegers;
@@ -82,7 +83,7 @@ int main() {
     // Parameters
     const string inputFilename = "test.txt";
     const string binaryFilename = "encoded.bin";
-    const int m = 7;                    // Example Golomb parameter; adjust as needed
+    const int m = 6;                    // Example Golomb parameter; adjust as needed
     const bool useInterleaving = false;  // Use interleaving mode for negative numbers
 
     // Step 1: Read integers from text file

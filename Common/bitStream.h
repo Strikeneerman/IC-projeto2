@@ -1,3 +1,6 @@
+#ifndef BITSTREAM
+#define BITSTREAM
+
 #include <iostream>
 #include <fstream>
 #include <string>
@@ -118,3 +121,5 @@ public:
         return result;
     }
 };
+
+#endif

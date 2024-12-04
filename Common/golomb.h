@@ -1,8 +1,11 @@
-#include <cmath>
-#include <stdexcept>
-#include <iostream>
+#ifndef GOLOMB
+#define GOLOMB
 
-#include "bitStream.h"  // Assumes a BitStream class is defined for bit manipulation
+#include <cmath>
+#include <iostream>
+#include <stdexcept>
+
+#include "bitStream.h"
 
 using namespace std;
 
@@ -12,7 +15,6 @@ class Golomb {
   bool useInterleaving;  // Mode for encoding negative values
 
  public:
-  // Constructor with parameter m and mode for negative values
   Golomb(int m, bool useInterleaving = false) : m(m), useInterleaving(useInterleaving) {
     if (m <= 0) {
       throw invalid_argument("Parameter m must be greater than zero.");
@@ -26,30 +28,42 @@ class Golomb {
   int zigzagDecode(int value) { return (value % 2 == 0) ? (value / 2) : (-(value + 1) / 2); }
 
   // Encode function that writes Golomb code to a BitStream
-  void encode(BitStream& stream, int value) {
+  // Returns number of bits written
+  int encode(BitStream& stream, int value) {
+    int bits_written = 0;
+
     // Use zigzag encoding for interleaving mode or absolute value otherwise
     int encodedValue = useInterleaving ? zigzagEncode(value) : abs(value);
-
     int q = encodedValue / m;
     int r = encodedValue % m;
-    //cout << "Encoding " << value << " q= " << q << " r= " << r << endl;
 
     // Unary encoding of quotient q (write q ones followed by a zero)
     for (int i = 0; i < q; ++i) {
-      stream.writeBit(1);  // Write each bit of unary code
+      stream.writeBit(1);
+      bits_written++;
     }
-    stream.writeBit(0);  // Terminate unary part
+    stream.writeBit(0);
+    bits_written++;
 
     // Binary encoding of remainder r
-    int remainderBits = ceil(log2(m));
-    stream.writeBits(r, remainderBits);
+    int b = ceil(log2(m));
+    if (r < (1 << b) - m) {
+      stream.writeBits(r, b - 1);
+      bits_written += b - 1;
+    } else {
+      stream.writeBits(r + (1 << b) - m, b);
+      bits_written += b;
+    }
 
-    // For sign and magnitude mode, write an extra bit for sign if needed
+    // For sign and magnitude mode, write an extra bit for sign
     if (!useInterleaving && value < 0) {
       stream.writeBit(1);  // Write a sign bit (1 for negative)
+      bits_written++;
     } else if (!useInterleaving) {
       stream.writeBit(0);  // Write a sign bit (0 for positive)
+      bits_written++;
     }
+    return bits_written;
   }
 
   // Decode function that reads Golomb code from a BitStream
@@ -61,8 +75,11 @@ class Golomb {
     }
 
     // Decode the binary part to get remainder r
-    int remainderBits = ceil(log2(m));
-    int r = stream.readBits(remainderBits);
+    int b = ceil(log2(m));
+    int r = stream.readBits(b - 1);
+    if (r >= (1 << b) - m) {
+      r = ((r << 1) | (stream.readBit() ? 1 : 0)) - ((1 << b) - m);
+    }
 
     // Reconstruct the encoded value
     int encodedValue = q * m + r;
@@ -78,3 +95,5 @@ class Golomb {
     }
   }
 };
+
+#endif
