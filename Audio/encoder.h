@@ -58,7 +58,7 @@ int encode(std::string file_path, std::string compression_type, int target_bitra
                 residual = currentChannel[channelIndex] - predicted;
             }
 
-            // If we are dealing with lossy, quantize here and update the channels vector
+            // If we are dealing with lossy compression, quantize here and update the channels vector
             if(compression_type == "lossy"){
                 residual = residual >> q_bits;
                 currentChannel[channelIndex] = residual << q_bits + predicted;
@@ -105,41 +105,3 @@ int encode(std::string file_path, std::string compression_type, int target_bitra
 // Try to simplify the code by spearating things into functions
 // Make decoder
 // Test
-
-
-
-/*
-
-// =============== APPLY PREDICTOR AND CALCULATE RESIDUALS ==========================
-    
-    std::vector<std::vector<sf::Int16>> residuals(channelCount);
-
-    for (unsigned int channel = 0; channel < channelCount; ++channel) {
-        const std::vector<sf::Int16> &currentChannel = channels[channel];
-        std::vector<sf::Int16> &currentResiduals = residuals[channel];
-        currentResiduals.reserve(currentChannel.size());
-
-        for (int i = 0; i < currentChannel.size(); ++i) {
-        if (i <= taylor_degree) {
-            currentResiduals.push_back(currentChannel[i]);
-        } else {
-            sf::Int16 predicted = predictor_taylor(taylor_degree, &currentChannel[i - 1]);
-            sf::Int16 residual = currentChannel[i] - predicted;
-            currentResiduals.push_back(residual);
-        }
-        }
-        saveHistogram(currentResiduals, "residuals_taylor_" + std::to_string(taylor_degree), 64);
-    }
-
-    // =============== WRITE A HEADER WITH METADATA =================
-    BitStream stream(std::filesystem::path(file_path).stem().string() + ".g7a", true);
-    int frame_size = 1024;
-    writeHeader(stream, channelCount, buffer.getSampleRate(), frame_size, buffer.getSampleCount());
-
-        // =============== CALCULATE OPTIMAL GOLOMB M ===================
-    int sum = std::accumulate(residuals[0].begin(), residuals[0].end(), 0);
-    double average = static_cast<double>(sum) / residuals[0].size();
-    double p = 1 / (average + 1);
-    int m = static_cast<int>(std::ceil(-1 / std::log2(1 - p)));
-    stream.writeBits(m, 12);  // Write m with 12 bit precision (m up to 4096)
-*/
