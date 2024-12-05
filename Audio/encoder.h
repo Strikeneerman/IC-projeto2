@@ -38,13 +38,6 @@ int encode(std::string file_path, std::string compression_type, int target_bitra
         int currentFrameSize = std::min(frame_size, sampleCount - frameStart);
         std::vector<std::vector<sf::Int16>> channels(channelCount);
 
-        // Create a sample vector for each channel
-        for (int i = 0; i < currentFrameSize; ++i) {
-            int globalIndex = frameStart + i;
-            int channelIndex = globalIndex % channelCount;
-            channels[channelIndex].push_back(sampleVector[globalIndex]);
-        }
-
         // Apply the predictor and compute residuals
         std::vector<std::vector<sf::Int16>> residuals(channelCount);
         for (int i = 0; i < currentFrameSize; ++i) {
@@ -52,20 +45,25 @@ int encode(std::string file_path, std::string compression_type, int target_bitra
             int channelIndex = globalIndex % channelCount;
 
             std::vector<sf::Int16> &currentResiduals = residuals[channelIndex];
-            const std::vector<sf::Int16> &currentChannel = channels[channelIndex];
+            std::vector<sf::Int16> &currentChannel = channels[channelIndex];
+            currentChannel.push_back(sampleVector[globalIndex]); // build a vetcor for each channel
+            
+            sf::Int16 residual;
+            sf::Int16 predicted;
+            
             if (channelIndex <= taylor_degree) {
-                currentResiduals.push_back(currentChannel[channelIndex]);
+                residual = currentChannel[channelIndex];
             } else {
-                sf::Int16 predicted = predictor_taylor(taylor_degree, &currentChannel[channelIndex - 1]);
-                sf::Int16 residual = currentChannel[channelIndex] - predicted;
-                currentResiduals.push_back(residual);
+                predicted = predictor_taylor(taylor_degree, &currentChannel[channelIndex - 1]);
+                residual = currentChannel[channelIndex] - predicted;
             }
 
             // If we are dealing with lossy, quantize here and update the channels vector
             if(compression_type == "lossy"){
-                // ... 
+                residual = residual >> q_bits;
+                currentChannel[channelIndex] = residual << q_bits + predicted;
             }
-            
+            currentResiduals.push_back(residual);
             //saveHistogram(currentResiduals, "residuals_taylor_" + std::to_string(taylor_degree), 64);
         }
 
@@ -77,7 +75,9 @@ int encode(std::string file_path, std::string compression_type, int target_bitra
         double average = static_cast<double>(sum_values) / (residuals[0].size() * channelCount);
         double p = 1 / (average + 1);
         int m = static_cast<int>(std::ceil(-1 / std::log2(1 - p)));
-        stream.writeBits(m, 12);  // Write m with 12 bit precision (m up to 4096)
+
+        stream.writeBits(m, 12);        // Write m with 12 bit precision (m up to 4096)
+        stream.writeBits(q_bits, 4);    // Write the quantization factor at the satrt of the frame as well
 
         // Write the residuals to the file
         Golomb golomb(m, useInterleaving);
@@ -101,22 +101,10 @@ int encode(std::string file_path, std::string compression_type, int target_bitra
     return 0;
 }
 
-// Lossless:
-// Read file and separate channels - done
-// Predict and get residuals - done
-// Get optimal m
-// Write header with number of samples that will be coded, golomb m parameter, sampling frequency and channel count
-// Write residuals
-
-// Lossy:
-// Read file and separate channels
-// Write header without m
-// Go over the file in blocks
-//      Predict, get residuals, (quantize residuals), update source material
-//      Get optimal m
-//      Write frame header with m
-//      Write frame block data
-//      Calculate avg bitrate, (update quantization step)
+// To do:
+// Try to simplify the code by spearating things into functions
+// Make decoder
+// Test
 
 
 
