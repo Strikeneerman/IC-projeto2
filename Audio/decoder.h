@@ -82,7 +82,7 @@ int decode(std::string file_path) {
             currentChannel.push_back(reconstructedSample);
             reconstructedSamples.push_back(reconstructedSample);
 
-            cout << "Residual: " << residual << " Predicted: " << predicted << " Reconstructed Sample: " << reconstructedSample << endl;
+            //cout << "Residual: " << residual << " Predicted: " << predicted << " Reconstructed Sample: " << reconstructedSample << endl;
 
         }
     }

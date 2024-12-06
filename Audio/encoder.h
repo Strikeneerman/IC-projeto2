@@ -97,8 +97,8 @@ int encode(std::string file_path, std::string compression_type, int target_bitra
             int channelIndex = globalIndex % channelCount;
             const std::vector<sf::Int16> &currentResiduals = residuals[channelIndex];
             bits_written += golomb.encode(stream, currentResiduals[i]);
-
-            std::vector<sf::Int16> &currentChannel = samples[channelIndex];
+            
+            //std::vector<sf::Int16> &currentChannel = samples[channelIndex];
             //cout << "Sample: " << currentChannel[i] << " Predicted: " << currentChannel[i] - currentResiduals[i] << " Residual: " << currentResiduals[i] << endl;
         }
 
