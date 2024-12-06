@@ -16,8 +16,8 @@ class Golomb {
 
  public:
   Golomb(int m, bool useInterleaving = false) : m(m), useInterleaving(useInterleaving) {
-    if (m <= 0) {
-      throw invalid_argument("Parameter m must be greater than zero.");
+    if (m <= 1) {
+      throw invalid_argument("Parameter m must be greater than 1.");
     }
   }
 
@@ -76,9 +76,14 @@ class Golomb {
 
     // Decode the binary part to get remainder r
     int b = ceil(log2(m));
-    int r = stream.readBits(b - 1);
-    if (r >= (1 << b) - m) {
-      r = ((r << 1) | (stream.readBit() ? 1 : 0)) - ((1 << b) - m);
+    int r;
+    if(b > 1){
+        r = stream.readBits(b - 1);
+        if (r >= (1 << b) - m) {
+            r = ((r << 1) | (stream.readBit() ? 1 : 0)) - ((1 << b) - m);
+        }
+    } else {
+        r = stream.readBits(b);
     }
 
     // Reconstruct the encoded value

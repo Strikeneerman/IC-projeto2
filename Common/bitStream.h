@@ -83,7 +83,7 @@ public:
     // Write N bits of an integer to the file (0 < N <= 64)
     void writeBits(uint64_t value, int N) {
         if (N <= 0 || N > 64) {
-            throw std::invalid_argument("N must be between 1 and 64");
+            throw std::invalid_argument("N must be between 1 and 64. Given: " + std::to_string(N));
         }
 
         for (int i = N - 1; i >= 0; i--) {
@@ -94,7 +94,7 @@ public:
     // Read N bits from the file into an integer (0 < N <= 64)
     uint64_t readBits(int N) {
         if (N <= 0 || N > 64) {
-            throw std::invalid_argument("N must be between 1 and 64");
+            throw std::invalid_argument("N must be between 1 and 64. Given: " + std::to_string(N));
         }
 
         uint64_t result = 0;

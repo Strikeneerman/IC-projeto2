@@ -44,7 +44,7 @@ int main(int argc, char *argv[]) {
   std::string file_path, operation, compression_type;
   int bitrate = 0;
 
-#if 0
+#if 1
   if (process_input(argc, argv, &file_path, &operation, &compression_type, &bitrate) == 1) return 1;
 #else
   file_path = "./datasets/sample01.wav";

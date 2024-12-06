@@ -4,7 +4,7 @@
 void saveWav(const std::vector<sf::Int16> &samples, unsigned int sampleRate, unsigned int channelCount, const std::string &filename) {
   sf::SoundBuffer buffer;
   buffer.loadFromSamples(samples.data(), samples.size(), channelCount, sampleRate);
-  std::string output_directory = "./outputs/wav_audio";
+  std::string output_directory = "./outputs/wav_audio/";
   std::filesystem::create_directory("./outputs/");
   std::filesystem::create_directory(output_directory);
   if (!buffer.saveToFile(output_directory + filename)) {
@@ -72,18 +72,22 @@ sf::Int16 predictor_taylor(int degree, const sf::Int16 *recentSamples) {
   return static_cast<sf::Int16>(std::round(predicted));
 }
 
-void writeHeader(BitStream& stream, int8_t channels, int16_t sampling_freq, int16_t frame_size, int16_t num_samples) {
-    stream.writeBits(channels, 4);          // Up to 16 channels 
+void writeHeader(BitStream& stream, int8_t channels, int16_t sampling_freq, int16_t frame_size, int32_t num_samples, int8_t taylor_degree, bool useInterleaving) {
+    stream.writeBits(channels, 4);          // Up to 15 channels 
     stream.writeBits(sampling_freq, 16);    // Up to 65khz sampling frequency
     stream.writeBits(frame_size, 16);       // Up to 65k samples per frame
     stream.writeBits(num_samples, 32);      // Up to 27 hours of mono audio at 44100hz
+    stream.writeBits(taylor_degree, 4);     // Up to 15 degree predictor
+    stream.writeBits(useInterleaving, 1);
 }
 
-void readHeader(BitStream& stream, int8_t &channels, int16_t &sampling_freq, int16_t &frame_size, int16_t &num_samples) {
+void readHeader(BitStream& stream, int8_t &channels, int16_t &sampling_freq, int16_t &frame_size, int32_t &num_samples, int8_t &taylor_degree, bool &useInterleaving) {
     channels = stream.readBits(4);
     sampling_freq = stream.readBits(16);
     frame_size = stream.readBits(16);
     num_samples = stream.readBits(32);
+    taylor_degree = stream.readBits(4);
+    useInterleaving = stream.readBits(1);
 }
 
 #endif
