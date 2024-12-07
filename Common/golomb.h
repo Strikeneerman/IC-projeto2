@@ -17,7 +17,7 @@ class Golomb {
  public:
   Golomb(int m, bool useInterleaving = false) : m(m), useInterleaving(useInterleaving) {
     if (m <= 1) {
-      throw invalid_argument("Parameter m must be greater than 1.");
+      throw invalid_argument("Parameter m must be greater than 1. Given: " + std::to_string(m));
     }
   }
 

@@ -1,6 +1,17 @@
 #ifndef AUDIO_UTILITIES
 #define AUDIO_UTILITIES
 
+void printAudioInfo(const sf::SoundBuffer &buffer)
+{
+    std::cout << "Audio File Information:" << std::endl;
+    std::cout << "Sample Rate: " << buffer.getSampleRate() << " Hz" << std::endl;
+    std::cout << "Channel Count: " << buffer.getChannelCount() << std::endl;
+    std::cout << "Duration: " << buffer.getDuration().asSeconds() << " seconds" << std::endl;
+    std::cout << "Sample Count: " << buffer.getSampleCount() << std::endl;
+    std::cout << "Sample Size: " << sizeof(sf::Int16) * 8 << " bits" << std::endl;
+}
+
+
 void saveWav(const std::vector<sf::Int16> &samples, unsigned int sampleRate, unsigned int channelCount, const std::string &filename) {
   sf::SoundBuffer buffer;
   buffer.loadFromSamples(samples.data(), samples.size(), channelCount, sampleRate);
@@ -72,7 +83,7 @@ sf::Int16 predictor_taylor(int degree, const sf::Int16 *recentSamples) {
   return static_cast<sf::Int16>(std::round(predicted));
 }
 
-void writeHeader(BitStream& stream, int8_t channels, int16_t sampling_freq, int16_t frame_size, int32_t num_samples, int8_t taylor_degree, bool useInterleaving) {
+void writeHeader(BitStream& stream, uint8_t channels, uint16_t sampling_freq, uint16_t frame_size, uint32_t num_samples, uint8_t taylor_degree, bool useInterleaving) {
     stream.writeBits(channels, 4);          // Up to 15 channels 
     stream.writeBits(sampling_freq, 16);    // Up to 65khz sampling frequency
     stream.writeBits(frame_size, 16);       // Up to 65k samples per frame
@@ -81,7 +92,7 @@ void writeHeader(BitStream& stream, int8_t channels, int16_t sampling_freq, int1
     stream.writeBits(useInterleaving, 1);
 }
 
-void readHeader(BitStream& stream, int8_t &channels, int16_t &sampling_freq, int16_t &frame_size, int32_t &num_samples, int8_t &taylor_degree, bool &useInterleaving) {
+void readHeader(BitStream& stream, uint8_t &channels, uint16_t &sampling_freq, uint16_t &frame_size, uint32_t &num_samples, uint8_t &taylor_degree, bool &useInterleaving) {
     channels = stream.readBits(4);
     sampling_freq = stream.readBits(16);
     frame_size = stream.readBits(16);

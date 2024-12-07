@@ -28,6 +28,8 @@ int encode(std::string file_path, std::string compression_type, int target_bitra
     const sf::Int16 *samples = buffer.getSamples();
     const std::vector<sf::Int16> originalSampleVector(samples, samples + sampleCount);
 
+    printAudioInfo(buffer);
+
     // Open destination file
     BitStream stream("./outputs/encoded_audio/" + std::filesystem::path(file_path).stem().string() + ".g7a", true);
     writeHeader(stream, channelCount, buffer.getSampleRate(), frame_size, buffer.getSampleCount(), taylor_degree, useInterleaving);
@@ -37,9 +39,9 @@ int encode(std::string file_path, std::string compression_type, int target_bitra
         // Determine the current frame size (might be smaller for the last frame)
         int currentFrameSize = std::min(frame_size, sampleCount - frameStart);
         std::vector<std::vector<sf::Int16>> samples(channelCount);
+        std::vector<std::vector<sf::Int16>> residuals(channelCount);
 
         // Apply the predictor and compute residuals
-        std::vector<std::vector<sf::Int16>> residuals(channelCount);
         for (int i = 0; i < currentFrameSize; ++i) {
             int globalIndex = frameStart + i;
             int channelIndex = globalIndex % channelCount;
@@ -78,26 +80,24 @@ int encode(std::string file_path, std::string compression_type, int target_bitra
             );
         }
         double average = static_cast<double>(sum_values) / (residuals[0].size() * channelCount);
-        cout << "Average residual: " << average << endl;
+        //cout << "Average residual: " << average << endl;
         if(useInterleaving) average *= 2;
         double p = 1 / (average + 1);
         int m = static_cast<int>(std::ceil(-1 / std::log2(1 - p)));
         if(m <= 1) m = 2;
 
-        cout << "Optimal m: " << m << endl;
+        //cout << "Optimal m: " << m << endl;
 
-        stream.writeBits(m, 12);        // Write m with 12 bit precision (m up to 4096)
+        stream.writeBits(m, 16);        // Write m with 16 bit precision
         stream.writeBits(q_bits, 4);    // Write the quantization factor at the satrt of the frame as well
 
         // Write the residuals to the file
         Golomb golomb(m, useInterleaving);
         int bits_written = 0;
-        for (int i = 0; i < currentFrameSize; ++i) {
-            int globalIndex = frameStart + i;
-            int channelIndex = globalIndex % channelCount;
-            const std::vector<sf::Int16> &currentResiduals = residuals[channelIndex];
-            bits_written += golomb.encode(stream, currentResiduals[i]);
-            
+        for (int i = 0; i < currentFrameSize/channelCount; ++i) {
+            for(int c = 0; c < channelCount; c++){
+                bits_written += golomb.encode(stream, residuals[c][i]); // will only work for a number of channels that is a divisor of the frame size
+            }
             //std::vector<sf::Int16> &currentChannel = samples[channelIndex];
             //cout << "Sample: " << currentChannel[i] << " Predicted: " << currentChannel[i] - currentResiduals[i] << " Residual: " << currentResiduals[i] << endl;
         }

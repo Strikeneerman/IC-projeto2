@@ -14,11 +14,11 @@ int decode(std::string file_path) {
     BitStream stream(file_path, false);
 
     // Read header information
-    int8_t channelCount;
-    int16_t samplingFreq;
-    int16_t frame_size;
-    int32_t totalSamples;
-    int8_t taylor_degree;
+    uint8_t channelCount;
+    uint16_t samplingFreq;
+    uint16_t frame_size;
+    uint32_t totalSamples;
+    uint8_t taylor_degree;
     bool useInterleaving;
     
     readHeader(stream, channelCount, samplingFreq, frame_size, totalSamples, taylor_degree, useInterleaving);
@@ -38,12 +38,12 @@ int decode(std::string file_path) {
     for (int frameStart = 0; frameStart < totalSamples; frameStart += frame_size) {
         
         // Determine current frame size
-        int currentFrameSize = std::min((int)frame_size, totalSamples - frameStart);
+        int currentFrameSize = std::min((int)frame_size, (int)(totalSamples - frameStart));
 
         cout << "Decoding frame starting at sample " << frameStart << " with size " << currentFrameSize << endl; 
         
         // Read frame header
-        int m = stream.readBits(12);        // Read Golomb m parameter
+        int m = stream.readBits(16);        // Read Golomb m parameter
         int q_bits = stream.readBits(4);    // Read quantization factor
         
         cout << " Golomb M: " << m << " Q_bits: " << q_bits << endl;
@@ -71,7 +71,7 @@ int decode(std::string file_path) {
             
             // Predict based on previous samples
             sf::Int16 predicted;
-            if (channelIndex <= taylor_degree) {
+            if (currentChannel.size() <= taylor_degree) {
                 predicted = currentChannel.empty() ? 0 : currentChannel.back();
             } else {
                 predicted = predictor_taylor(taylor_degree, &currentChannel[currentChannel.size() - 1]);
