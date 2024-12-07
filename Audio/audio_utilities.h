@@ -56,30 +56,46 @@ void saveHistogram(const std::vector<sf::Int16> &data, const std::string &title,
   outfile.close();
 }
 
-sf::Int16 predictor_basic(sf::Int16 sample_n_1) { return sample_n_1; }
+sf::Int16 predictor_basic(const std::vector<sf::Int16> &recentSamples) { 
+    return recentSamples[recentSamples.size()]; 
+}
 
-sf::Int16 predictor_taylor(int degree, const sf::Int16 *recentSamples) {
+// There are issues with the predictor nor degree higuer than 0
+sf::Int16 predictor_taylor(int degree, int channelCount, const std::vector<sf::Int16> &recentSamples) {
+    if(recentSamples.size()/channelCount == 0){
+        return static_cast<sf::Int16>(0);
+    }
+    if(degree >= recentSamples.size()/channelCount){
+        return recentSamples[recentSamples.size()-channelCount];
+    }
+
+
   // Start with the most recent sample
-  float predicted = recentSamples[0];
+  double predicted = recentSamples[recentSamples.size()-channelCount];
 
   // Precompute factorial values
-  std::vector<int> factorial(degree + 1, 1);
+  std::vector<double> factorial(degree + 1, 1);
   for (int i = 1; i <= degree; ++i) {
     factorial[i] = factorial[i - 1] * i;
   }
 
   // Compute Taylor terms
   for (int n = 1; n <= degree; ++n) {
-    float nth_term = 0;
+    double nth_term = 0;
     // Approximate nth derivative using finite differences (backward Euler method)
     for (int i = 0; i <= n; ++i) {
-      int sign = (i % 2 == 0) ? 1 : -1;  // Alternating signs
-      nth_term += sign * (*(recentSamples - i)) * factorial[n] / (factorial[i] * factorial[n - i]);
+      double sign = (i % 2 == 0) ? 1 : -1;  // Alternating signs
+      nth_term += sign * ((double)recentSamples[recentSamples.size()-channelCount*i]) * factorial[n] / (factorial[i] * factorial[n - i]);
     }
 
     // Add nth term to the prediction
     predicted += nth_term / factorial[n];
   }
+
+  // bound the predicton to the 16 bit range
+  predicted = std::max(predicted, (double)(-(1 << 15)));
+  predicted = std::min(predicted, (double)(1 << 15 -1));
+
   return static_cast<sf::Int16>(std::round(predicted));
 }
 

@@ -10,8 +10,8 @@
 #include "./audio_utilities.h"
 
 int encode(std::string file_path, std::string compression_type, int target_bitrate) {
-    const int frame_size = 128;
-    const int taylor_degree = 0;
+    const int frame_size = 1024;
+    const int taylor_degree = 1;
     const bool useInterleaving = false;
 
     const int bitrate_margin = 5;   // Acceptable error from target bitrate
@@ -23,12 +23,15 @@ int encode(std::string file_path, std::string compression_type, int target_bitra
         std::cerr << "Failed to load WAV file: " << file_path << std::endl;
         return 1;
     }
+    printAudioInfo(buffer);
+
     unsigned int channelCount = buffer.getChannelCount();
     const int sampleCount = buffer.getSampleCount();
     const sf::Int16 *samples = buffer.getSamples();
-    const std::vector<sf::Int16> originalSampleVector(samples, samples + sampleCount);
+    const std::vector<sf::Int16> globalSamples(samples, samples + sampleCount);
 
-    printAudioInfo(buffer);
+    std::vector<int> globalResiduals;
+    globalResiduals.reserve(sampleCount);
 
     // Open destination file
     BitStream stream("./outputs/encoded_audio/" + std::filesystem::path(file_path).stem().string() + ".g7a", true);
@@ -38,54 +41,39 @@ int encode(std::string file_path, std::string compression_type, int target_bitra
     for (int frameStart = 0; frameStart < sampleCount; frameStart += frame_size) {
         // Determine the current frame size (might be smaller for the last frame)
         int currentFrameSize = std::min(frame_size, sampleCount - frameStart);
-        std::vector<std::vector<sf::Int16>> samples(channelCount);
-        std::vector<std::vector<sf::Int16>> residuals(channelCount);
+        std::vector<int> frameResiduals;
+        std::vector<sf::Int16> frameSamples;
+        frameResiduals.reserve(currentFrameSize);
+        frameSamples.reserve(currentFrameSize);
 
         // Apply the predictor and compute residuals
         for (int i = 0; i < currentFrameSize; ++i) {
-            int globalIndex = frameStart + i;
-            int channelIndex = globalIndex % channelCount;
+            int predicted;
+            int residual;
+              
+            //predicted = predictor_basic(frameSamples);
+            predicted = predictor_taylor(taylor_degree, channelCount, frameSamples);
+            residual = (globalSamples[frameStart + i] - predicted) >> q_bits;
 
-            std::vector<sf::Int16> &currentResiduals = residuals[channelIndex];
-            std::vector<sf::Int16> &currentChannel = samples[channelIndex];
-            currentChannel.push_back(originalSampleVector[globalIndex]); // build a vetcor for each channel
-            
-            sf::Int16 residual;
-            sf::Int16 predicted;
-            
-            if (i <= taylor_degree) {
-                residual = currentChannel[i];
-            } else {
-                predicted = predictor_taylor(taylor_degree, &currentChannel[i - 1]);
-                residual = currentChannel[i] - predicted;
-            }
-
-            // If we are dealing with lossy compression, quantize here and update the channels vector
-            if(compression_type == "lossy"){
-                residual = residual >> q_bits;
-                currentChannel[i] = residual << q_bits + predicted;
-            }
-            currentResiduals.push_back(residual);
-            //saveHistogram(currentResiduals, "residuals_taylor_" + std::to_string(taylor_degree), 64);
+            globalResiduals.push_back(residual);
+            frameResiduals.push_back(residual);
+            frameSamples.push_back(predicted + residual << q_bits);
         }
 
         // Calculate optimal Golomb M
-        int sum_values = 0;
-        for (int channel = 0; channel < channelCount; channel++) {
-            sum_values += std::accumulate(
-                residuals[channel].begin(), 
-                residuals[channel].end(), 
+        int sum_values = std::accumulate(
+                frameResiduals.begin(), 
+                frameResiduals.end(), 
                 0, 
                 [](int acc, int val) { return acc + std::abs(val); }
             );
-        }
-        double average = static_cast<double>(sum_values) / (residuals[0].size() * channelCount);
-        //cout << "Average residual: " << average << endl;
+        double average = static_cast<double>(sum_values) / frameResiduals.size();
         if(useInterleaving) average *= 2;
         double p = 1 / (average + 1);
         int m = static_cast<int>(std::ceil(-1 / std::log2(1 - p)));
         if(m <= 1) m = 2;
 
+        //cout << "Average residual: " << average << endl;
         //cout << "Optimal m: " << m << endl;
 
         stream.writeBits(m, 16);        // Write m with 16 bit precision
@@ -94,12 +82,8 @@ int encode(std::string file_path, std::string compression_type, int target_bitra
         // Write the residuals to the file
         Golomb golomb(m, useInterleaving);
         int bits_written = 0;
-        for (int i = 0; i < currentFrameSize/channelCount; ++i) {
-            for(int c = 0; c < channelCount; c++){
-                bits_written += golomb.encode(stream, residuals[c][i]); // will only work for a number of channels that is a divisor of the frame size
-            }
-            //std::vector<sf::Int16> &currentChannel = samples[channelIndex];
-            //cout << "Sample: " << currentChannel[i] << " Predicted: " << currentChannel[i] - currentResiduals[i] << " Residual: " << currentResiduals[i] << endl;
+        for (int i = 0; i < currentFrameSize; ++i) {
+            bits_written += golomb.encode(stream, frameResiduals[i]);
         }
 
         // Calculate bitrate used and adapt quantization if needed
@@ -113,8 +97,3 @@ int encode(std::string file_path, std::string compression_type, int target_bitra
 
     return 0;
 }
-
-// To do:
-// Try to simplify the code by spearating things into functions
-// Make decoder
-// Test
