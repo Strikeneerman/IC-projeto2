@@ -10,11 +10,12 @@
 #include "./audio_utilities.h"
 
 int encode(std::string file_path, std::string compression_type, int target_bitrate) {
-    const int frame_size = 1024;
-    const int taylor_degree = 2;
+    const int frame_size = 4096;
+    const int taylor_degree = 5;
     const bool useInterleaving = false;
 
     const int bitrate_margin = 5;                         // Acceptable error from target bitrate
+    const int max_q_bits = 12;
     int q_bits = compression_type == "lossless" ? 0 : 4;  // Quantization factor in bits
 
     // Load source file
@@ -88,12 +89,13 @@ int encode(std::string file_path, std::string compression_type, int target_bitra
 
         // Calculate bitrate used and adapt quantization if needed
         if (compression_type == "lossy") {
-            double frame_time = currentFrameSize / (buffer.getSampleRate() * channelCount);
-            double bitrate = bits_written / (frame_time * 1000);  // in kbps
-            if (bitrate > target_bitrate + bitrate_margin)
+            double frame_time = (double)currentFrameSize / (buffer.getSampleRate() * channelCount);
+            double bitrate = (double)bits_written / (frame_time * 1000);  // in kbps
+            if (bitrate < target_bitrate + bitrate_margin && q_bits > 0)
                 q_bits--;
-            else if (bitrate < target_bitrate - bitrate_margin)
+            else if (bitrate > target_bitrate - bitrate_margin && q_bits < max_q_bits)
                 q_bits++;
+            cout << "Frame bitrate (kbps): " << bitrate << " Target: " << target_bitrate << " Q_bits: " << q_bits << endl;
         }
     }
 
