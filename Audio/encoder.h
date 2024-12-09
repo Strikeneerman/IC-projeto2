@@ -10,7 +10,7 @@
 #include "./audio_utilities.h"
 
 int encode(std::string file_path, std::string compression_type, int target_bitrate) {
-    const int frame_size = 4096;
+    const int frame_size = 32000;
     const int taylor_degree = 5;
     const bool useInterleaving = false;
 
@@ -54,14 +54,15 @@ int encode(std::string file_path, std::string compression_type, int target_bitra
             int residual;
 
             predicted = predictor_taylor(taylor_degree, channelCount, frameSamples);
-            residual = (globalSamples[frameStart + i] - predicted) >> q_bits;
+            residual = (globalSamples[frameStart + i] - predicted);
+            residual = residual >> q_bits;
 
             // cout << "Residual: " << residual << " Predicted: " << predicted << " Reconstructed Sample: " << (predicted + residual <<
             // q_bits) << " Real Sample: " << globalSamples[frameStart + i] << endl;
 
             globalResiduals.push_back(residual);
             frameResiduals.push_back(residual);
-            frameSamples.push_back(predicted + residual << q_bits);
+            frameSamples.push_back(predicted + (residual << q_bits));
         }
 
         // Calculate optimal Golomb M
@@ -73,9 +74,8 @@ int encode(std::string file_path, std::string compression_type, int target_bitra
         int m = static_cast<int>(std::ceil(-1 / std::log2(1 - p)));
         if (m <= 1) m = 2;
 
-        // cout << "Encoding frame starting at sample " << frameStart << " with size " << currentFrameSize << endl;
-        // cout << " Golomb M: " << m << " Q_bits: " << q_bits << endl;
-        // cout << "Average residual: " << average << endl;
+        //cout << "Encoding frame starting at sample " << frameStart << " with size " << currentFrameSize << endl;
+        //cout << " Golomb M: " << m << " Average residual: " << average << " Q_bits: " << q_bits << endl;
 
         stream.writeBits(m, 16);      // Write m with 16 bit precision
         stream.writeBits(q_bits, 4);  // Write the quantization factor at the satrt of the frame as well

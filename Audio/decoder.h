@@ -50,7 +50,8 @@ int decode(std::string file_path) {
         // Initialize Golomb decoder
         Golomb golomb(m, useInterleaving);
         for (int i = 0; i < currentFrameSize; ++i) {
-            int residual = golomb.decode(stream) << q_bits;
+            int residual = golomb.decode(stream);
+            residual = residual << q_bits;
 
             // int predicted = predictor_basic(frameSamples);
             int predicted = predictor_taylor(taylor_degree, channelCount, frameSamples);
