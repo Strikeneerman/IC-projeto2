@@ -9,14 +9,13 @@
 #include "./SFML-2.6.2/include/SFML/Audio.hpp"
 #include "./audio_utilities.h"
 
-int encode(std::string file_path, std::string compression_type, int target_bitrate) {
+int encode(std::string file_path, std::string compression_type, int target_bitrate, int taylor_degree) {
     const int frame_size = 32000;
-    const int taylor_degree = 5;
     const bool useInterleaving = false;
-
-    const int bitrate_margin = 5;                         // Acceptable error from target bitrate
     const int max_q_bits = 12;
+    const int bitrate_margin = 5;                         // Acceptable error from target bitrate
     int q_bits = compression_type == "lossless" ? 0 : 4;  // Quantization factor in bits
+    //taylor_degree = 5;
 
     // Load source file
     sf::SoundBuffer buffer;
