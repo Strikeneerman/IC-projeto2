@@ -1,6 +1,9 @@
 #ifndef AUDIO_UTILITIES
 #define AUDIO_UTILITIES
 
+#include <cmath>
+#include <unordered_map>
+
 void printAudioInfo(const sf::SoundBuffer &buffer) {
     std::cout << "Audio File Information:" << std::endl;
     std::cout << "Sample Rate: " << buffer.getSampleRate() << " Hz" << std::endl;
@@ -57,8 +60,8 @@ void saveHistogram(const std::vector<sf::Int16> &data, const std::string &title,
 sf::Int16 predictor_basic(const std::vector<sf::Int16> &recentSamples) { return recentSamples[recentSamples.size()]; }
 
 sf::Int16 predictor_taylor(int degree, int channelCount, const std::vector<sf::Int16> &recentSamples) {
-    if (recentSamples.size() / channelCount == 0) { 
-        return 0;                                                   // No recent samples, return 0
+    if (recentSamples.size() / channelCount == 0) {
+        return 0;  // No recent samples, return 0
     }
     if (degree >= recentSamples.size() / channelCount) {
         return recentSamples[recentSamples.size() - channelCount];  // Not enough samples for a prediction, return last sample
@@ -87,23 +90,42 @@ sf::Int16 predictor_taylor(int degree, int channelCount, const std::vector<sf::I
 }
 
 void writeHeader(BitStream &stream, uint8_t channels, uint16_t sampling_freq, uint16_t frame_size, uint32_t num_samples,
-                 uint8_t taylor_degree, bool useInterleaving) {
+                 bool useInterleaving) {
     stream.writeBits(channels, 4);        // Up to 15 channels
     stream.writeBits(sampling_freq, 16);  // Up to 65khz sampling frequency
     stream.writeBits(frame_size, 16);     // Up to 65k samples per frame
     stream.writeBits(num_samples, 32);    // Up to 27 hours of mono audio at 44100hz
-    stream.writeBits(taylor_degree, 4);   // Up to 15 degree predictor
     stream.writeBits(useInterleaving, 1);
 }
 
 void readHeader(BitStream &stream, uint8_t &channels, uint16_t &sampling_freq, uint16_t &frame_size, uint32_t &num_samples,
-                uint8_t &taylor_degree, bool &useInterleaving) {
+                bool &useInterleaving) {
     channels = stream.readBits(4);
     sampling_freq = stream.readBits(16);
     frame_size = stream.readBits(16);
     num_samples = stream.readBits(32);
-    taylor_degree = stream.readBits(4);
     useInterleaving = stream.readBits(1);
+}
+
+double get_entropy(const std::vector<int> &frameResiduals) {
+    // Create a map to store the frequency of each value
+    std::unordered_map<int, int> value_count;
+
+    // Count the frequency of each value
+    for (int value : frameResiduals) {
+        value_count[value]++;
+    }
+
+    double total_count = frameResiduals.size();
+    double entropy = 0.0;
+
+    // Calculate the entropy
+    for (const auto &[value, count] : value_count) {
+        double probability = count / total_count;
+        entropy -= probability * std::log2(probability);
+    }
+
+    return entropy;
 }
 
 #endif

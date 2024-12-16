@@ -18,16 +18,14 @@ int decode(std::string file_path) {
     uint16_t samplingFreq;
     uint16_t frame_size;
     uint32_t totalSamples;
-    uint8_t taylor_degree;
     bool useInterleaving;
 
-    readHeader(stream, channelCount, samplingFreq, frame_size, totalSamples, taylor_degree, useInterleaving);
+    readHeader(stream, channelCount, samplingFreq, frame_size, totalSamples, useInterleaving);
 
     std::cout << "Channel Count: " << static_cast<int>(channelCount) << '\n';
     std::cout << "Sampling Frequency: " << samplingFreq << " Hz\n";
     std::cout << "Frame Size: " << frame_size << '\n';
     std::cout << "Total Samples: " << totalSamples << '\n';
-    std::cout << "Taylor Degree: " << static_cast<int>(taylor_degree) << '\n';
     std::cout << "Use Interleaving: " << (useInterleaving ? "Yes" : "No") << '\n';
 
     // Prepare output vector
@@ -41,8 +39,9 @@ int decode(std::string file_path) {
         frameSamples.reserve(currentFrameSize);
 
         // Read frame header
-        int m = stream.readBits(16);      // Read Golomb m parameter
-        int q_bits = stream.readBits(4);  // Read quantization factor
+        int m = stream.readBits(16);            // Read Golomb m parameter
+        int q_bits = stream.readBits(4);        // Read quantization factor
+        int taylor_degree = stream.readBits(3); // Read taylor degree used
 
         // cout << "Decoding frame starting at sample " << frameStart << " with size " << currentFrameSize << endl;
         // cout << " Golomb M: " << m << " Q_bits: " << q_bits << endl;

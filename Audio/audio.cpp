@@ -12,14 +12,17 @@
 
 int print_usage(const std::string &program_name) {
   std::cout << "Usage:\n"
-            << "  " << program_name << " <file_path> encode lossy [bitrate] <predictor_degree>\n"
-            << "  " << program_name << " <file_path> encode lossless <predictor_degree>\n"
+            << "  " << program_name << " <file_path> encode lossy [bitrate] [predictor_degree]\n"
+            << "  " << program_name << " <file_path> encode lossless [predictor_degree]\n"
             << "  " << program_name << " <file_path> decode\n";
   return 1;
 }
 
 int process_input(int argc, char *argv[], std::string &file_path, std::string &operation, 
                   std::string &compression_type, int &bitrate, int &predictor_degree) {
+  // Default predictor_degree to -1
+  predictor_degree = -1;
+  
   if (argc < 3) return print_usage(argv[0]);
   file_path = argv[1];
   operation = argv[2];
@@ -32,22 +35,31 @@ int process_input(int argc, char *argv[], std::string &file_path, std::string &o
   if (operation != "encode") return print_usage(argv[0]);
   
   // Encode operation requires additional parameters
-  if (argc < 5) return print_usage(argv[0]);
+  if (argc < 4) return print_usage(argv[0]);
   
   compression_type = argv[3];
   
   if (compression_type == "lossless") {
-    if (argc != 5) return print_usage(argv[0]);
-    predictor_degree = std::stoi(argv[4]);
-    if (predictor_degree <= 0) return print_usage(argv[0]);
+    // Optional predictor_degree
+    if (argc == 5) {
+      predictor_degree = std::stoi(argv[4]);
+      if (predictor_degree <= 0) return print_usage(argv[0]);
+    }
     return 0;
   }
   
   if (compression_type == "lossy") {
-    if (argc != 6) return print_usage(argv[0]);
-    bitrate = std::stoi(argv[4]);
-    predictor_degree = std::stoi(argv[5]);
-    if (bitrate <= 0 || predictor_degree <= 0) return print_usage(argv[0]);
+    // Handle both cases: with and without predictor_degree
+    if (argc == 5) {
+      bitrate = std::stoi(argv[4]);
+      if (bitrate <= 0) return print_usage(argv[0]);
+    } else if (argc == 6) {
+      bitrate = std::stoi(argv[4]);
+      predictor_degree = std::stoi(argv[5]);
+      if (bitrate <= 0 || predictor_degree <= 0) return print_usage(argv[0]);
+    } else {
+      return print_usage(argv[0]);
+    }
     return 0;
   }
   
