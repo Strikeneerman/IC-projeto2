@@ -59,6 +59,10 @@ void saveHistogram(const std::vector<sf::Int16> &data, const std::string &title,
 
 sf::Int16 predictor_basic(const std::vector<sf::Int16> &recentSamples) { return recentSamples[recentSamples.size()]; }
 
+/*
+// Generalized implementation for degree n of FLAC polinomial predictor (it's only one term of the taylor series)
+// page 44 on https://www.ietf.org/archive/id/draft-ietf-cellar-flac-08.pdf 
+// Results:  13.9086  11.7264  11.3132  11.6488  12.2604  12.981  13.7429  14.4952 Taylor degree with least entropy: 2
 sf::Int16 predictor_taylor(int degree, int channelCount, const std::vector<sf::Int16> &recentSamples) {
     if (recentSamples.size() / channelCount == 0) {
         return 0;  // No recent samples, return 0
@@ -73,12 +77,42 @@ sf::Int16 predictor_taylor(int degree, int channelCount, const std::vector<sf::I
         factorial[i] = factorial[i - 1] * i;
     }
     // Compute Taylor terms approximating derivatives using finite differences (backward Euler method)
-    float predicted = recentSamples[recentSamples.size() - channelCount];
-    for (int n = 1; n <= degree; ++n) {
+    float predicted = 0;
+    int n = degree;
+    for (int i = 1; i <= n; i++) {
+        float sign = (i % 2 == 0) ? -1 : 1;  // Alternating signs
+        float ith_prev_sample = recentSamples[recentSamples.size() - i * channelCount];
+        float binomial = factorial[n] / (factorial[i] * factorial[n - i]);
+        predicted += sign * ith_prev_sample * binomial;
+    }
+    predicted = std::max(predicted, (float)(-(1 << 15)));
+    predicted = std::min(predicted, (float)(1 << 15 - 1));
+    return static_cast<sf::Int16>(std::round(predicted));
+}
+*/
+
+// My original version (my degrees are one less than the correspondent FLAC)
+// Results:  11.7264  11.3132  11.3521  11.3627  11.3551  11.3474  11.3437  11.3426 Taylor degree with least entropy: 1
+sf::Int16 predictor_taylor(int degree, int channelCount, const std::vector<sf::Int16> &recentSamples) {
+    if (recentSamples.size() / channelCount == 0) {
+        return 0;  // No recent samples, return 0
+    }
+    if (degree >= recentSamples.size() / channelCount) {
+        return recentSamples[recentSamples.size() - channelCount];  // Not enough samples for a prediction, return last sample
+    }
+    // Precompute factorial values
+    std::vector<int> factorial(degree + 1);
+    factorial[0] = 1;
+    for (int i = 1; i <= degree; ++i) {
+        factorial[i] = factorial[i - 1] * i;
+    }
+    // Compute Taylor terms approximating derivatives using finite differences (backward Euler method)
+    float predicted = 0;
+    for (int n = 0; n <= degree; ++n) {
         float nth_term = 0;
         for (int i = 0; i <= n; ++i) {
             float sign = (i % 2 == 0) ? 1 : -1;  // Alternating signs
-            float ith_prev_sample = recentSamples[(recentSamples.size() - 1) - i * channelCount];
+            float ith_prev_sample = recentSamples[recentSamples.size() - (1 + i) * channelCount];
             float binomial = factorial[n] / (factorial[i] * factorial[n - i]);
             nth_term += sign * ith_prev_sample * binomial;
         }
@@ -88,6 +122,32 @@ sf::Int16 predictor_taylor(int degree, int channelCount, const std::vector<sf::I
     predicted = std::min(predicted, (float)(1 << 15 - 1));
     return static_cast<sf::Int16>(std::round(predicted));
 }
+
+
+/*
+// Hardcoded FLAC version
+sf::Int16 predictor_taylor(int degree, int channelCount, const std::vector<sf::Int16> &recentSamples) {
+    if (recentSamples.size() / channelCount == 0) {
+        return 0;  // No recent samples, return 0
+    }
+    if (degree >= recentSamples.size() / channelCount) {
+        return recentSamples[recentSamples.size() - channelCount];  // Not enough samples for a prediction, return last sample
+    }
+
+    float predicted = 0;
+    if(degree == 1){
+        predicted = recentSamples[recentSamples.size() - channelCount];
+    } else if(degree == 2){
+        predicted = 2*recentSamples[recentSamples.size() - channelCount] - recentSamples[recentSamples.size() - 2*channelCount];
+    } else if(degree == 3){
+        predicted = 3*recentSamples[recentSamples.size() - channelCount] - 3*recentSamples[recentSamples.size() - 2*channelCount] + recentSamples[recentSamples.size() - 3*channelCount];
+    } else if(degree == 4){
+        predicted = 4*recentSamples[recentSamples.size() - channelCount] - 6*recentSamples[recentSamples.size() - 2*channelCount] + 4*recentSamples[recentSamples.size() - 3*channelCount] - recentSamples[recentSamples.size() - 4*channelCount];
+    }
+    
+    return static_cast<sf::Int16>(std::round(predicted));
+}
+*/
 
 void writeHeader(BitStream &stream, uint8_t channels, uint16_t sampling_freq, uint16_t frame_size, uint32_t num_samples,
                  bool useInterleaving) {

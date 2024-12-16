@@ -5,15 +5,13 @@
 
 using namespace std;
 
-// There are issues with the predictor nor degree higuer than 0
 short int predictor_taylor(int degree, int channelCount, const std::vector<short int> &recentSamples) {
-    if (recentSamples.size() / channelCount == 0) { 
-        return 0;                                                   // No recent samples, return 0
+    if (recentSamples.size() / channelCount == 0) {
+        return 0;  // No recent samples, return 0
     }
     if (degree >= recentSamples.size() / channelCount) {
         return recentSamples[recentSamples.size() - channelCount];  // Not enough samples for a prediction, return last sample
     }
-
     // Precompute factorial values
     std::vector<int> factorial(degree + 1);
     factorial[0] = 1;
@@ -22,19 +20,20 @@ short int predictor_taylor(int degree, int channelCount, const std::vector<short
     }
 
     // Compute Taylor terms approximating derivatives using finite differences (backward Euler method)
-    float predicted = recentSamples[recentSamples.size() - channelCount];
-    for (int n = 1; n <= degree; ++n) {
-        cout << endl << "Taylor term of order " << n << ": ";
-        float nth_term = 0;
-        for (int i = 0; i <= n; ++i) {
-            float sign = (i % 2 == 0) ? 1 : -1;  // Alternating signs
-            float ith_prev_sample = recentSamples[(recentSamples.size() - 1) - i * channelCount];
-            float binomial = factorial[n] / (factorial[i] * factorial[n - i]);
-            nth_term += sign * ith_prev_sample * binomial;
-            cout << (sign == 1 ? " +" : " -") << binomial << "*" << ith_prev_sample;
-        }
-        predicted += nth_term / factorial[n];
+    float predicted = 0;
+    int n = degree;
+
+    cout << "n:" << n << "    ";
+    for (int i = 1; i <= n; i++) {
+        float sign = (i % 2 == 0) ? -1 : 1;  // Alternating signs
+        float ith_prev_sample = recentSamples[recentSamples.size() - i * channelCount];
+        float binomial = factorial[n] / (factorial[i] * factorial[n - i]);
+        predicted += sign * ith_prev_sample * binomial;
+        cout << (sign == -1 ? " - " : " + ") << binomial << "*" << ith_prev_sample;
     }
+    cout << endl;
+
+
     predicted = std::max(predicted, (float)(-(1 << 15)));
     predicted = std::min(predicted, (float)(1 << 15 - 1));
     return static_cast<short int>(std::round(predicted));
@@ -42,9 +41,9 @@ short int predictor_taylor(int degree, int channelCount, const std::vector<short
 
 int main() {
     // Samples are from f(x) = x^2, for x = 0, 1, 2
-    int taylor_degree = 3;
+    int taylor_degree = 4;
     std::vector<short int> samples;
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < 6; i++) {
         samples.push_back(i * i);
         cout << samples[i] << " ";
     }
