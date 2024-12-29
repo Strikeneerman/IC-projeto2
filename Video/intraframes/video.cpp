@@ -1,8 +1,8 @@
 #include <iostream>
 #include <fstream>
 #include <vector>
-#include "../Common/bitStream.h"
-#include "../Common/golomb.h"
+#include "../../Common/bitStream.h"
+#include "../../Common/golomb.h"
 #include <opencv2/opencv.hpp>
 #include <regex>
 
@@ -96,6 +96,7 @@ void encodeRawVideo(const string& inputFile, const string& outputFile, int m) {
     cout << "Raw video encoded successfully." << endl;
 }
 
+// Decode raw YUV video and write Y4M header
 void decodeRawVideo(const string& inputFile, const string& outputFile) {
     BitStream stream(inputFile, false);
 
@@ -108,16 +109,16 @@ void decodeRawVideo(const string& inputFile, const string& outputFile) {
     int frameSize = width * height;
     ofstream output(outputFile, ios::binary);
 
+    // Write Y4M header
+    output << "YUV4MPEG2 W" << width << " H" << height << " F30:1 Ip A0:0\n";
 
     Mat frame(height, width, CV_8UC1, Scalar(0));
-
 
     while (true) {
         if (stream.eof()) {
             cout << "EOF reached, exiting decoding loop." << endl;
             break;
         }
-
         try {
             decodeFrame(frame, golomb, stream);
             output.write(reinterpret_cast<const char*>(frame.data), frameSize);
@@ -127,8 +128,9 @@ void decodeRawVideo(const string& inputFile, const string& outputFile) {
         }
     }
 
-    cout << "Raw video decoded successfully." << endl;
+    cout << "Raw video decoded successfully with Y4M header." << endl;
 }
+
 
 int main(int argc, char** argv) {
     if (argc < 4) {

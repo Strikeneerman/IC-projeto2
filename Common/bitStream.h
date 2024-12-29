@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 #include <stdexcept>
+#include <cstdint>
 
 class BitStream {
 private:
@@ -17,6 +18,8 @@ private:
     // Helper method to flush buffer to file
     void flushBuffer() {
         if (isWriteMode && bufferPos > 0) {
+            // Pad the remaining bits with zeros
+            buffer <<= (8 - bufferPos);
             file.write(reinterpret_cast<char*>(&buffer), 1);
             buffer = 0;
             bufferPos = 0;
@@ -24,14 +27,14 @@ private:
     }
 
 public:
-    BitStream(const std::string& filename, bool write = true) : 
+    BitStream(const std::string& filename, bool write = true) :
         buffer(0), bufferPos(0), isWriteMode(write) {
         if (write) {
             file.open(filename, std::ios::out | std::ios::binary);
         } else {
             file.open(filename, std::ios::in | std::ios::binary);
         }
-        
+
         if (!file.is_open()) {
             throw std::runtime_error("Failed to open file: " + filename);
         }
@@ -60,6 +63,14 @@ public:
         }
     }
 
+    // New method to check if the end of file has been reached
+    bool eof() {
+        if (bufferPos < 8) {  // Still bits left in the buffer
+            return false;
+        }
+        return file.eof();  // Check if end of file flag is set
+    }
+
     // Read a single bit from the file
     bool readBit() {
         if (isWriteMode) {
@@ -69,7 +80,11 @@ public:
         if (bufferPos == 0 || bufferPos == 8) {
             char nextByte;
             if (!file.read(&nextByte, 1)) {
-                throw std::runtime_error("End of file reached");
+                if (file.eof()) {
+                    return false;  // Return false if end of file is reached
+                } else {
+                    throw std::runtime_error("Error reading from file");
+                }
             }
             buffer = static_cast<unsigned char>(nextByte);
             bufferPos = 0;
