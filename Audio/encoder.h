@@ -10,11 +10,11 @@
 #include "./audio_utilities.h"
 
 int encode(std::string file_path, std::string compression_type, int target_bitrate, int taylor_degree) {
-    const int frame_size = 32000;
+    const int frame_size = 1024;
     const bool useInterleaving = false;
     const int max_q_bits = 12;
     const int bitrate_margin = 5;     // Acceptable error from target bitrate
-    const int max_taylor_degree = 7;  // Acceptable error from target bitrate
+    const int max_taylor_degree = 7;  
 
     int q_bits = compression_type == "lossless" ? 0 : 4;  // Quantization factor in bits
     bool iterate_over_predictors;
@@ -43,7 +43,7 @@ int encode(std::string file_path, std::string compression_type, int target_bitra
 
     // Open a CSV file to log the taylor degrees used
     std::ofstream csvFile;
-    csvFile.open("taylor_degrees.csv");
+    csvFile.open("taylor_degrees.csv", std::ios::app);
 
     // Iterate through samples frame by frame
     for (uint32_t frameStart = 0; frameStart < sampleCount; frameStart += frame_size) {
@@ -72,7 +72,7 @@ int encode(std::string file_path, std::string compression_type, int target_bitra
                 vector_frameSamples[frame_taylor_degree].push_back(predicted + (residual << q_bits));
             }
             entropy.push_back(get_entropy(vector_frameResiduals[frame_taylor_degree]));
-            cout << ' ' << get_entropy(vector_frameResiduals[frame_taylor_degree]) << ' ';
+            //cout << ' ' << get_entropy(vector_frameResiduals[frame_taylor_degree]) << ' ';
             frame_taylor_degree++;
         } while (iterate_over_predictors && frame_taylor_degree <= max_taylor_degree);
 
@@ -85,7 +85,7 @@ int encode(std::string file_path, std::string compression_type, int target_bitra
                 min_entropy_degree = i;
             }
         }
-        cout << "Taylor degree with least entropy: " << min_entropy_degree << endl;
+        //cout << "Taylor degree with least entropy: " << min_entropy_degree << endl;
 
         // Calculate optimal Golomb M
         int sum_values = std::accumulate(vector_frameResiduals[min_entropy_degree].begin(), vector_frameResiduals[min_entropy_degree].end(),
@@ -119,7 +119,7 @@ int encode(std::string file_path, std::string compression_type, int target_bitra
                 q_bits--;
             else if (bitrate > target_bitrate - bitrate_margin && q_bits < max_q_bits)
                 q_bits++;
-            cout << "Frame bitrate (kbps): " << bitrate << " Target: " << target_bitrate << " Q_bits: " << q_bits << endl;
+            //cout << "Frame bitrate (kbps): " << bitrate << " Target: " << target_bitrate << " Q_bits: " << q_bits << endl;
         }
     }
     csvFile.close();
