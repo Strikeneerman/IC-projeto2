@@ -44,6 +44,7 @@ int computeOptimalM(const Mat& frame) {
 
     meanResidual /= pixelCount;
     int optimalM = max(2, static_cast<int>(ceil(-1 / log2(meanResidual / 256.0))));
+    //         int m = static_cast<int>(std::ceil(-1 / std::log2(1 - (1 / (average + 1)))));
     return min(16, optimalM); // Clamp to a maximum of 16
 }
 

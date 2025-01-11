@@ -1,4 +1,5 @@
 # Makefile for Video Project
+SHELL := /bin/bash
 
 # Directories
 SRC_DIR := src
