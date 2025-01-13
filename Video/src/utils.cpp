@@ -185,7 +185,8 @@ Mat getPredictedBlock(const Mat& referenceFrame, int x, int y,
 }
 
 void logResults(const string& inputFile, const string& outputFile,
-                const string& operation, double elapsedTime) {
+                const string& operation, double elapsedTime,
+                const array<unsigned long long, 8>* stats) {
     ifstream in(inputFile, ios::binary | ios::ate);
     ifstream out(outputFile, ios::binary | ios::ate);
 
@@ -205,6 +206,7 @@ void logResults(const string& inputFile, const string& outputFile,
     double sizeRatio = static_cast<double>(outputSize) / static_cast<double>(inputSize);
 
     // Prepare and print the log message
+    cout << "---------------------------------------------\n";
     cout << "Operation: " << operation << "\n"
          << "Input File: " << inputFile << "\n"
          << "Output File: " << outputFile << "\n"
@@ -212,6 +214,21 @@ void logResults(const string& inputFile, const string& outputFile,
          << "Output Size: " << outputSize << " bytes\n"
          << fixed << setprecision(3)
          << "Size Ratio (Output/Input): " << sizeRatio << "\n"
-         << "Time Taken: " << elapsedTime << " seconds\n"
-         << "---------------------------------------------\n";
+         << "Time Taken: " << elapsedTime << " seconds\n";
+
+    // Log stats if provided
+    if (stats) {
+        cout << "---------------------------------------------\n";
+        cout << "Frame stats\n";
+        cout << "Intra-frames: " << (*stats)[0] << "  "
+             << "Inter-frames: " << (*stats)[1] << "\n"
+             << "Intra Y-blocks: " << (*stats)[3] << "  "
+             << "Inter Y-blocks: " << (*stats)[2] << "\n"
+             << "Intra U-blocks: " << (*stats)[5] << "  "
+             << "Inter U-blocks: " << (*stats)[4] << "\n"
+             << "Intra V-blocks: " << (*stats)[7] << "  "
+             << "Inter V-blocks: " << (*stats)[6] << "\n";
+    }
+
+    cout << "---------------------------------------------\n";
 }

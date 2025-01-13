@@ -17,6 +17,7 @@
 #include <iomanip>
 #include <sstream>
 #include <numeric>
+#include <array>
 
 using namespace std;
 using namespace cv;
@@ -41,7 +42,8 @@ struct BlockMatchingParams {
 };
 
 // Main encoding/decoding functions
-    void encodeRawVideo(const std::string& inputFile,
+    void encodeRawVideo(  array<unsigned long long, 8>& stats,
+                            const std::string& inputFile,
                             const std::string& outputFile,
                             const BlockMatchingParams& params = BlockMatchingParams(),
                             int frame_period = -1);
@@ -50,11 +52,9 @@ struct BlockMatchingParams {
                             const std::string& outputFile);
 
 // Logging function
-    void logResults(const std::string& inputFile,
-                        const std::string& outputFile,
-                        const std::string& operation,
-                        double elapsedTime);
-
+    void logResults(const string& inputFile, const string& outputFile,
+                const string& operation, double elapsedTime,
+                const array<unsigned long long, 8>* stats = nullptr);
 // Helper functions for frame processing
     void parseY4MHeader(std::ifstream& input, int& width, int& height, int& frame_count,
                    int& uvWidth, int& uvHeight, int& uvFrameSize, int& yFrameSize);
@@ -74,6 +74,8 @@ struct BlockMatchingParams {
                             const cv::Mat& referenceFrame,
                             Golomb& golomb,
                             BitStream& stream,
+                            unsigned long long& counter1,
+                            unsigned long long& counter2,
                             const BlockMatchingParams& params);
 
     void decodeFrameInter(cv::Mat& frame,

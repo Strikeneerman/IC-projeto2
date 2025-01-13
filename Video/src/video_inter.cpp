@@ -63,11 +63,13 @@ int main(int argc, char** argv) {
         }
 
         BlockMatchingParams params = BlockMatchingParams(searchSize, blockSize);
-        encodeRawVideo(inputFile, outputFile, params, frames);
+        array<unsigned long long, 8> stats;
+        stats.fill(0);
+        encodeRawVideo(stats, inputFile, outputFile, params, frames);
 
         auto endTime = chrono::high_resolution_clock::now();
         double elapsedTime = chrono::duration<double>(endTime - startTime).count();
-        logResults(inputFile, outputFile, "EncodingFrames", elapsedTime);
+        logResults(inputFile, outputFile, "EncodingFrames", elapsedTime, &stats);
 
     } else if (action == "-decode" && argc == 4) {
         string inputFile = argv[2];

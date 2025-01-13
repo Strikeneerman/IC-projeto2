@@ -37,7 +37,9 @@ void encodeFrameIntra(const Mat& frame, BitStream& stream) {
 }
 
 void encodeFrameInter(const Mat& currentFrame, const Mat& referenceFrame,
-                     BitStream& stream, const BlockMatchingParams& params = BlockMatchingParams()) {
+                     BitStream& stream,
+                     unsigned long long& counter1, unsigned long long& counter2,
+                     const BlockMatchingParams& params = BlockMatchingParams()) {
     const int rows = currentFrame.rows;
     const int cols = currentFrame.cols;
 
@@ -90,12 +92,14 @@ void encodeFrameInter(const Mat& currentFrame, const Mat& referenceFrame,
             bool useInter;
             if(averageInter < averageIntra){
                 useInter = true;
+                counter1++;
                 blockResiduals = residualsInter;
                 blockM = static_cast<int>(std::ceil(-1 / std::log2(1 - (1 / (averageInter + 1)))));
                 stream.writeBit(1);
             } else {
                 //cout << "intra block in inter frame!" << endl;
                 useInter = false;
+                counter2++;
                 blockResiduals = residualsIntra;
                 blockM = static_cast<int>(std::ceil(-1 / std::log2(1 - (1 / (averageIntra + 1)))));
                 stream.writeBit(0);
@@ -121,7 +125,8 @@ void encodeFrameInter(const Mat& currentFrame, const Mat& referenceFrame,
     }
 }
 
-void encodeRawVideo(const std::string& inputFile,
+void encodeRawVideo( array<unsigned long long, 8>& stats,
+                   const std::string& inputFile,
                    const std::string& outputFile,
                    const BlockMatchingParams& params,
                    int frame_period) {
@@ -206,6 +211,7 @@ void encodeRawVideo(const std::string& inputFile,
             stream.writeBits(doIntra ? 0 : 1, 1);
 
             if (doIntra) {
+                stats[0]++;
                 encodeFrameIntra(currentFrameY, stream);
                 encodeFrameIntra(currentFrameU, stream);
                 encodeFrameIntra(currentFrameV, stream);
@@ -213,9 +219,10 @@ void encodeRawVideo(const std::string& inputFile,
                 currentFrameU.copyTo(referenceFrameU);
                 currentFrameV.copyTo(referenceFrameV);
             } else {
-                encodeFrameInter(currentFrameY, referenceFrameY, stream, params);
-                encodeFrameInter(currentFrameU, referenceFrameU, stream, params);
-                encodeFrameInter(currentFrameV, referenceFrameV, stream, params);
+                stats[1]++;
+                encodeFrameInter(currentFrameY, referenceFrameY, stream, stats[2], stats[3], params);
+                encodeFrameInter(currentFrameU, referenceFrameU, stream, stats[4], stats[5], params);
+                encodeFrameInter(currentFrameV, referenceFrameV, stream, stats[6], stats[7], params);
                 currentFrameY.copyTo(referenceFrameY);
                 currentFrameU.copyTo(referenceFrameU);
                 currentFrameV.copyTo(referenceFrameV);
