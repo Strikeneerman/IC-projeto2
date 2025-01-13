@@ -67,8 +67,8 @@ void decodeFrameInter(Mat& frame, const Mat& referenceFrame,
                     for (int bx = 0; bx < currentBlockWidth; ++bx) {
                         int residual = golomb.decode(stream);
                         residual <<= shiftBits;
-                        int predicted = predictPixel(frame, x, y);
-                        frame.at<uchar>(y, x) = saturate_cast<uchar>(residual + predicted);
+                        int predicted = predictPixel(frame, x + bx, y + by);
+                        frame.at<uchar>(y + by,  x + bx ) = saturate_cast<uchar>(residual + predicted);
                     }
                 }
             }

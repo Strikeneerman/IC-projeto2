@@ -18,7 +18,7 @@ int main(int argc, char** argv) {
         // Default values
         int searchSize = 32;    // Default search area
         int blockSize = 4;      // Default block size
-        int frames = 0;         // Default frames
+        int frames = 7;         // Default frames
         float lossyRatio = 1.0; // Default lossy ratio (1.0 means lossless)
 
         // Parse optional arguments

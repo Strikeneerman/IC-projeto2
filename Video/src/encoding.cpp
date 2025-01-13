@@ -76,7 +76,7 @@ void encodeFrameInter(const Mat& currentFrame, const Mat& referenceFrame,
             for (int by = 0; by < currentBlockHeight; ++by) {
                 for (int bx = 0; bx < currentBlockWidth; ++bx) {
                     int residualInter = currentBlock.at<uchar>(by, bx) - predictedBlockInter.at<uchar>(by, bx);
-                    int residualIntra = currentBlock.at<uchar>(by, bx) - predictPixel(currentFrame, x, y);
+                    int residualIntra = currentBlock.at<uchar>(by, bx) - predictPixel(currentFrame, x + bx, y + by);
 
                     residualInter >>= shiftBits;
                     residualIntra >>= shiftBits;
