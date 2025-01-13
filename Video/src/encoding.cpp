@@ -1,7 +1,7 @@
 
 #include "VideoCodec.h"
 
-void encodeFrameIntra(const Mat& frame, BitStream& stream) {
+void encodeFrameIntra(const Mat& frame, BitStream& stream, int shiftBits) {
     vector<int> residuals;
     residuals.reserve(frame.rows * frame.cols);
 
@@ -10,6 +10,7 @@ void encodeFrameIntra(const Mat& frame, BitStream& stream) {
         for (int x = 0; x < frame.cols; ++x) {
             int predicted = predictPixel(frame, x, y);
             int residual = frame.at<uchar>(y, x) - predicted;
+            residual >>= shiftBits;
             residuals.push_back(residual);
         }
     }
@@ -39,6 +40,7 @@ void encodeFrameIntra(const Mat& frame, BitStream& stream) {
 void encodeFrameInter(const Mat& currentFrame, const Mat& referenceFrame,
                      BitStream& stream,
                      unsigned long long& counter1, unsigned long long& counter2,
+                     int shiftBits,
                      const BlockMatchingParams& params = BlockMatchingParams()) {
     const int rows = currentFrame.rows;
     const int cols = currentFrame.cols;
@@ -75,6 +77,10 @@ void encodeFrameInter(const Mat& currentFrame, const Mat& referenceFrame,
                 for (int bx = 0; bx < currentBlockWidth; ++bx) {
                     int residualInter = currentBlock.at<uchar>(by, bx) - predictedBlockInter.at<uchar>(by, bx);
                     int residualIntra = currentBlock.at<uchar>(by, bx) - predictPixel(currentFrame, x, y);
+
+                    residualInter >>= shiftBits;
+                    residualIntra >>= shiftBits;
+
                     residualsInter.push_back(residualInter);
                     residualsIntra.push_back(residualIntra);
                 }
@@ -128,7 +134,8 @@ void encodeRawVideo( array<unsigned long long, 8>& stats,
                    const std::string& inputFile,
                    const std::string& outputFile,
                    const BlockMatchingParams& params,
-                   int frame_period) {
+                   int frame_period,
+                   int shiftBits) {
     ifstream input(inputFile, ios::binary);
     BitStream stream(outputFile, true);
     if (!input) {
@@ -158,6 +165,7 @@ void encodeRawVideo( array<unsigned long long, 8>& stats,
     stream.writeBits(height, 16);
     stream.writeBits(uvWidth, 16);
     stream.writeBits(uvHeight, 16);
+    stream.writeBits(shiftBits, 16);
     stream.writeBits(frame_count, 32);
     stream.writeBits(params.blockSize, 8);
     stream.writeBits(params.searchRange, 8);
@@ -211,17 +219,17 @@ void encodeRawVideo( array<unsigned long long, 8>& stats,
 
             if (doIntra) {
                 stats[0]++;
-                encodeFrameIntra(currentFrameY, stream);
-                encodeFrameIntra(currentFrameU, stream);
-                encodeFrameIntra(currentFrameV, stream);
+                encodeFrameIntra(currentFrameY, stream, shiftBits);
+                encodeFrameIntra(currentFrameU, stream, shiftBits);
+                encodeFrameIntra(currentFrameV, stream, shiftBits);
                 currentFrameY.copyTo(referenceFrameY);
                 currentFrameU.copyTo(referenceFrameU);
                 currentFrameV.copyTo(referenceFrameV);
             } else {
                 stats[1]++;
-                encodeFrameInter(currentFrameY, referenceFrameY, stream, stats[2], stats[3], params);
-                encodeFrameInter(currentFrameU, referenceFrameU, stream, stats[4], stats[5], params);
-                encodeFrameInter(currentFrameV, referenceFrameV, stream, stats[6], stats[7], params);
+                encodeFrameInter(currentFrameY, referenceFrameY, stream, stats[2], stats[3], shiftBits, params);
+                encodeFrameInter(currentFrameU, referenceFrameU, stream, stats[4], stats[5], shiftBits, params);
+                encodeFrameInter(currentFrameV, referenceFrameV, stream, stats[6], stats[7], shiftBits, params);
                 currentFrameY.copyTo(referenceFrameY);
                 currentFrameU.copyTo(referenceFrameU);
                 currentFrameV.copyTo(referenceFrameV);

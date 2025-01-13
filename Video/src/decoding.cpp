@@ -1,7 +1,7 @@
 
 #include "VideoCodec.h"
 
-void decodeFrameIntra(Mat& frame, BitStream& stream) {
+void decodeFrameIntra(Mat& frame, BitStream& stream, int shiftBits) {
     // Read m value for the frame
     int m = stream.readBits(8);
 
@@ -11,6 +11,7 @@ void decodeFrameIntra(Mat& frame, BitStream& stream) {
         for (int x = 0; x < frame.cols; ++x) {
             try {
                 int residual = golomb.decode(stream);
+                residual <<= shiftBits;
                 int predicted = predictPixel(frame, x, y);
                 frame.at<uchar>(y, x) = saturate_cast<uchar>(residual + predicted);
             } catch (const std::runtime_error& e) {
@@ -23,6 +24,7 @@ void decodeFrameIntra(Mat& frame, BitStream& stream) {
 
 void decodeFrameInter(Mat& frame, const Mat& referenceFrame,
                       BitStream& stream,
+                      int shiftBits,
                       const BlockMatchingParams& params = BlockMatchingParams()) {
     const int rows = frame.rows;
     const int cols = frame.cols;
@@ -54,6 +56,7 @@ void decodeFrameInter(Mat& frame, const Mat& referenceFrame,
                 for (int by = 0; by < currentBlockHeight; ++by) {
                     for (int bx = 0; bx < currentBlockWidth; ++bx) {
                         int residual = golomb.decode(stream);
+                        residual <<= shiftBits;
                         frame.at<uchar>(y + by, x + bx) = saturate_cast<uchar>(
                             predictedBlock.at<uchar>(by, bx) + residual
                         );
@@ -63,6 +66,7 @@ void decodeFrameInter(Mat& frame, const Mat& referenceFrame,
                 for (int by = 0; by < currentBlockHeight; ++by) {
                     for (int bx = 0; bx < currentBlockWidth; ++bx) {
                         int residual = golomb.decode(stream);
+                        residual <<= shiftBits;
                         int predicted = predictPixel(frame, x, y);
                         frame.at<uchar>(y, x) = saturate_cast<uchar>(residual + predicted);
                     }
@@ -84,6 +88,7 @@ void decodeRawVideo(const string& inputFile, const string& outputFile) {
     int height = stream.readBits(16);
     int uvWidth = stream.readBits(16);
     int uvHeight = stream.readBits(16);
+    int shiftBits = stream.readBits(16);
     int frame_count = stream.readBits(32);
     int blockSize = stream.readBits(8);
     int searchRange = stream.readBits(8);
@@ -111,16 +116,16 @@ void decodeRawVideo(const string& inputFile, const string& outputFile) {
             bool isIntra = (stream.readBits(1) == 0);
 
             if (isIntra) {
-                decodeFrameIntra(currentFrameY, stream);
-                decodeFrameIntra(currentFrameU, stream);
-                decodeFrameIntra(currentFrameV, stream);
+                decodeFrameIntra(currentFrameY, stream, shiftBits);
+                decodeFrameIntra(currentFrameU, stream, shiftBits);
+                decodeFrameIntra(currentFrameV, stream, shiftBits);
                 currentFrameY.copyTo(referenceFrameY);
                 currentFrameU.copyTo(referenceFrameU);
                 currentFrameV.copyTo(referenceFrameV);
             } else {
-                decodeFrameInter(currentFrameY, referenceFrameY, stream, params);
-                decodeFrameInter(currentFrameU, referenceFrameU, stream, params);
-                decodeFrameInter(currentFrameV, referenceFrameV, stream, params);
+                decodeFrameInter(currentFrameY, referenceFrameY, stream, shiftBits, params);
+                decodeFrameInter(currentFrameU, referenceFrameU, stream, shiftBits, params);
+                decodeFrameInter(currentFrameV, referenceFrameV, stream, shiftBits, params);
                 currentFrameY.copyTo(referenceFrameY);
                 currentFrameU.copyTo(referenceFrameU);
                 currentFrameV.copyTo(referenceFrameV);

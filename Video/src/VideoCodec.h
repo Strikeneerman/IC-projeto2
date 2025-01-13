@@ -46,7 +46,8 @@ struct BlockMatchingParams {
                             const std::string& inputFile,
                             const std::string& outputFile,
                             const BlockMatchingParams& params = BlockMatchingParams(),
-                            int frame_period = -1);
+                            int frame_period = -1,
+                            int shiftBits = 0);
 
     void decodeRawVideo(const std::string& inputFile,
                             const std::string& outputFile);
@@ -64,11 +65,13 @@ struct BlockMatchingParams {
 // Frame encoding/decoding
     void encodeFrameIntra(const cv::Mat& frame,
                             Golomb& golomb,
-                            BitStream& stream);
+                            BitStream& stream,
+                            int shiftBits);
 
     void decodeFrameIntra(cv::Mat& frame,
                             Golomb& golomb,
-                            BitStream& stream);
+                            BitStream& stream,
+                            int shiftBits);
 
     void encodeFrameInter(const cv::Mat& currentFrame,
                             const cv::Mat& referenceFrame,
@@ -76,12 +79,14 @@ struct BlockMatchingParams {
                             BitStream& stream,
                             unsigned long long& counter1,
                             unsigned long long& counter2,
+                            int shiftBits,
                             const BlockMatchingParams& params);
 
     void decodeFrameInter(cv::Mat& frame,
                             const cv::Mat& referenceFrame,
                             Golomb& golomb,
                             BitStream& stream,
+                            int shiftBits,
                             const BlockMatchingParams& params);
 
 // Motion estimation helpers
