@@ -10,17 +10,17 @@ void encodeFrameIntra(const Mat& frame, BitStream& stream) {
         for (int x = 0; x < frame.cols; ++x) {
             int predicted = predictPixel(frame, x, y);
             int residual = frame.at<uchar>(y, x) - predicted;
-            residuals.push_back(abs(residual));
+            residuals.push_back(residual);
         }
     }
 
     // Calculate average absolute residual
-    double sum = std::accumulate(residuals.begin(), residuals.end(), 0.0);
+    double sum = std::accumulate(residuals.begin(), residuals.end(), 0, [](int acc, int val) { return acc + std::abs(val); });
     double average = sum / residuals.size();
 
     // Calculate optimal m
     int m = static_cast<int>(std::ceil(-1 / std::log2(1 - (1 / (average + 1)))));
-    m = max(2, min(m, 16));
+    m = max(2, min(m, 64));
 
     // Write m value
     stream.writeBits(m, 8);
@@ -31,9 +31,7 @@ void encodeFrameIntra(const Mat& frame, BitStream& stream) {
     int i = 0;
     for (int y = 0; y < frame.rows; ++y) {
         for (int x = 0; x < frame.cols; ++x) {
-            int predicted = predictPixel(frame, x, y);
-            int residual = frame.at<uchar>(y, x) - predicted;
-            golomb.encode(stream, residual);
+            golomb.encode(stream, residuals[y * frame.cols + x]);
         }
     }
 }
@@ -61,41 +59,62 @@ void encodeFrameInter(const Mat& currentFrame, const Mat& referenceFrame,
                                                  x, y, params);
 
             // Get predicted block from reference frame using motion vector
-            Mat predictedBlock = getPredictedBlock(referenceFrame, x, y,
+            Mat predictedBlockInter = getPredictedBlock(referenceFrame, x, y,
                                                  currentBlockWidth, currentBlockHeight,
                                                  mv);
 
-            // Calculate residuals and optimal m for this block
-            vector<int> blockResiduals;
-            blockResiduals.reserve(currentBlockHeight * currentBlockWidth);
+            // Calculate residuals for intra and inter prediction
+            vector<int> residualsInter;
+            vector<int> residualsIntra;
+            residualsInter.reserve(currentBlockHeight * currentBlockWidth);
+            residualsIntra.reserve(currentBlockHeight * currentBlockWidth);
 
             for (int by = 0; by < currentBlockHeight; ++by) {
                 for (int bx = 0; bx < currentBlockWidth; ++bx) {
-                    int residual = currentBlock.at<uchar>(by, bx) -
-                                 predictedBlock.at<uchar>(by, bx);
-                    blockResiduals.push_back(abs(residual));
+                    int residualInter = currentBlock.at<uchar>(by, bx) - predictedBlockInter.at<uchar>(by, bx);
+                    int residualIntra = currentBlock.at<uchar>(by, bx) - predictPixel(currentFrame, x, y);
+                    residualsInter.push_back(residualInter);
+                    residualsIntra.push_back(residualIntra);
                 }
             }
 
-            // Calculate optimal m for this block
-            double blockSum = std::accumulate(blockResiduals.begin(), blockResiduals.end(), 0.0);
-            double blockAverage = blockSum / blockResiduals.size();
-            int blockM = static_cast<int>(std::ceil(-1 / std::log2(1 - (1 / (blockAverage + 1)))));
-            blockM = max(2, min(blockM, 16));
+            // Get average residuals for both options
+            double sumInter = std::accumulate(residualsInter.begin(), residualsInter.end(), 0, [](int acc, int val) { return acc + std::abs(val); });
+            double sumIntra = std::accumulate(residualsIntra.begin(), residualsIntra.end(), 0, [](int acc, int val) { return acc + std::abs(val); });
+            double averageInter = sumInter / residualsInter.size();
+            double averageIntra = sumIntra / residualsIntra.size();
+
+            // Choose the method that resulted in better prediction
+            vector<int> blockResiduals;
+            int blockM;
+            bool useInter;
+            if(averageInter < averageIntra){
+                useInter = true;
+                blockResiduals = residualsInter;
+                blockM = static_cast<int>(std::ceil(-1 / std::log2(1 - (1 / (averageInter + 1)))));
+                stream.writeBit(1);
+            } else {
+                //cout << "intra block in inter frame!" << endl;
+                useInter = false;
+                blockResiduals = residualsIntra;
+                blockM = static_cast<int>(std::ceil(-1 / std::log2(1 - (1 / (averageIntra + 1)))));
+                stream.writeBit(0);
+            }
+            blockM = max(2, min(blockM, 64));
 
             // Write block header (m value and motion vectors)
             stream.writeBits(blockM, 8);
             Golomb golomb(blockM, false);
-            golomb.encode(stream, mv.dx);
-            golomb.encode(stream, mv.dy);
+            if(useInter){
+                golomb.encode(stream, mv.dx);
+                golomb.encode(stream, mv.dy);
+            }
 
             // Encode residuals for the block
             int i = 0;
             for (int by = 0; by < currentBlockHeight; ++by) {
                 for (int bx = 0; bx < currentBlockWidth; ++bx) {
-                    int residual = currentBlock.at<uchar>(by, bx) -
-                                 predictedBlock.at<uchar>(by, bx);
-                    golomb.encode(stream, residual);
+                    golomb.encode(stream, blockResiduals[by * currentBlockWidth + bx]);
                 }
             }
         }
@@ -130,13 +149,13 @@ void encodeRawVideo(const std::string& inputFile,
     // Write header information
     stream.writeBits(width, 16);
     stream.writeBits(height, 16);
-    stream.writeBits(frame_count, 16);
+    stream.writeBits(frame_count, 32);
     stream.writeBits(params.blockSize, 8);
     stream.writeBits(params.searchRange, 8);
 
 
     int yFrameSize = width * height;
-    int uvWidth = width / 2;
+    int uvWidth = width / 2;                // TO DO Make this dependent on file header and not hardcoded
     int uvHeight = height / 2;
     int uvFrameSize = uvWidth * uvHeight;
 

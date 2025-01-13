@@ -16,7 +16,8 @@ int main(int argc, char** argv) {
         string inputFile = argv[2];
         string outputFile = argv[3];
 
-        encodeRawVideo(inputFile, outputFile);
+        BlockMatchingParams params = BlockMatchingParams(32, 4);
+        encodeRawVideo(inputFile, outputFile, params);
 
         auto endTime = chrono::high_resolution_clock::now();
         double elapsedTime = chrono::duration<double>(endTime - startTime).count();
