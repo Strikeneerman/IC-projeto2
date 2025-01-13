@@ -33,41 +33,30 @@ void decodeFrameInter(Mat& frame, const Mat& referenceFrame,
             int currentBlockHeight = min(params.blockSize, rows - y);
             int currentBlockWidth = min(params.blockSize, cols - x);
 
-            bool useInter = (stream.readBit() == 1);
-
             // Read m value for this block
             int blockM = stream.readBits(8);
             Golomb golomb(blockM, false);
 
-            if(useInter){
-                // Decode motion vector
-                int dx = golomb.decode(stream);
-                int dy = golomb.decode(stream);
-                MotionVector mv(dx, dy);
+            // Decode motion vector
+            int dx = golomb.decode(stream);
+            int dy = golomb.decode(stream);
+            MotionVector mv(dx, dy);
 
-                // Get predicted block from reference frame
-                Mat predictedBlock = getPredictedBlock(referenceFrame, x, y,
-                                                    currentBlockWidth, currentBlockHeight,
-                                                    mv);
+            // Get predicted block from reference frame
+            Mat predictedBlock = getPredictedBlock(referenceFrame, x, y,
+                                                currentBlockWidth, currentBlockHeight,
+                                                mv);
 
-                // Decode residuals and reconstruct the block
-                for (int by = 0; by < currentBlockHeight; ++by) {
-                    for (int bx = 0; bx < currentBlockWidth; ++bx) {
-                        int residual = golomb.decode(stream);
-                        frame.at<uchar>(y + by, x + bx) = saturate_cast<uchar>(
-                            predictedBlock.at<uchar>(by, bx) + residual
-                        );
-                    }
-                }
-            } else {
-                for (int by = 0; by < currentBlockHeight; ++by) {
-                    for (int bx = 0; bx < currentBlockWidth; ++bx) {
-                        int residual = golomb.decode(stream);
-                        int predicted = predictPixel(frame, x, y);
-                        frame.at<uchar>(y, x) = saturate_cast<uchar>(residual + predicted);
-                    }
+            // Decode residuals and reconstruct the block
+            for (int by = 0; by < currentBlockHeight; ++by) {
+                for (int bx = 0; bx < currentBlockWidth; ++bx) {
+                    int residual = golomb.decode(stream);
+                    frame.at<uchar>(y + by, x + bx) = saturate_cast<uchar>(
+                        predictedBlock.at<uchar>(by, bx) + residual
+                    );
                 }
             }
+
         }
     }
 }

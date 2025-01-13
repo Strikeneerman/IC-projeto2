@@ -4,7 +4,7 @@
 void encodeFrameIntra(const Mat& frame, BitStream& stream) {
     vector<int> residuals;
     residuals.reserve(frame.rows * frame.cols);
-
+    stream.writeBit(0);
     // First pass: collect residuals and calculate optimal m
     for (int y = 0; y < frame.rows; ++y) {
         for (int x = 0; x < frame.cols; ++x) {
@@ -199,7 +199,6 @@ void encodeRawVideo(const std::string& inputFile,
 
             // Determine frame type
             bool isIntra = (frameCount % 8 == 0);  // Every 8th frame is intra
-            stream.writeBits(isIntra ? 0 : 1, 1);
 
             if (isIntra) {
                 encodeFrameIntra(currentFrameY, stream);

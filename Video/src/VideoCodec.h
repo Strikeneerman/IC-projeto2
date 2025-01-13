@@ -103,31 +103,5 @@ struct BlockMatchingParams {
                                 const cv::Mat& referenceFrame,
                                 const BlockMatchingParams& params);
 
-// Size measurement for mode decision
-    size_t measureEncodedFrameSize(const cv::Mat& frame,
-                                    Golomb& golomb,
-                                    bool isIntra,
-                                    const cv::Mat& referenceFrame = cv::Mat(),
-                                    const BlockMatchingParams& params = BlockMatchingParams());
-
-
-// Utility classes for bit counting
-class BitCounter {
-public:
-    BitCounter() : bits(0) {}
-    void addBits(size_t n) { bits += n; }
-    size_t getBits() const { return bits; }
-private:
-    size_t bits;
-};
-
-class TestBitStream {
-public:
-    TestBitStream() {}
-    void writeBits(int value, int numBits) { counter.addBits(numBits); }
-    size_t getBitCount() const { return counter.getBits(); }
-private:
-    BitCounter counter;
-};
 
 #endif // VIDEO_CODEC_H
