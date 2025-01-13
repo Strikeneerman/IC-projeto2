@@ -28,7 +28,7 @@ void encodeFrameIntra(const Mat& frame, BitStream& stream) {
     Golomb golomb(m, false);
 
     // Second pass: encode residuals
-    int i = 0;
+
     for (int y = 0; y < frame.rows; ++y) {
         for (int x = 0; x < frame.cols; ++x) {
             golomb.encode(stream, residuals[y * frame.cols + x]);
@@ -115,7 +115,6 @@ void encodeFrameInter(const Mat& currentFrame, const Mat& referenceFrame,
             }
 
             // Encode residuals for the block
-            int i = 0;
             for (int by = 0; by < currentBlockHeight; ++by) {
                 for (int bx = 0; bx < currentBlockWidth; ++bx) {
                     golomb.encode(stream, blockResiduals[by * currentBlockWidth + bx]);

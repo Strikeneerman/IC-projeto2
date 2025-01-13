@@ -1,8 +1,8 @@
-# Makefile for Video Project
+# Makefile for video_inter Project
 SHELL := /bin/bash
 
 # Directories
-SRC_DIR := src
+SRC_DIR := .
 BIN_DIR := bin
 VIDEO_DIR := videos
 ENCODED_DIR := encoded
@@ -10,72 +10,55 @@ OUTPUT_DIR := output
 LOG_DIR := logs
 
 # Log files
-BLOCK_LOG_ENCODE := $(LOG_DIR)/video_block_encode.txt
-FRAME_LOG_ENCODE := $(LOG_DIR)/video_frame_encode.
-BLOCK_LOG_DECODE := $(LOG_DIR)/video_block_decode.txt
-FRAME_LOG_DECODE := $(LOG_DIR)/video_frame_decode.txt
-
-# Source files and binaries
-SRC_FILES := $(wildcard $(SRC_DIR)/*.cpp)
-BINARIES := $(patsubst $(SRC_DIR)/%.cpp, $(BIN_DIR)/%, $(SRC_FILES))
-VIDEOS := $(wildcard $(VIDEO_DIR)/*.y4m)
+ENCODE_LOG := $(LOG_DIR)/video_inter_encode.log
+DECODE_LOG := $(LOG_DIR)/video_inter_decode.log
 
 # Compiler and flags
 CXX := g++
 CXXFLAGS := -std=c++17 -O3 -Wall -fopenmp $(shell pkg-config --cflags opencv4)
 LDFLAGS := $(shell pkg-config --libs opencv4)
 
-# Default m value for video_frame
-M ?= 3
+# Source files and binary
+SOURCES := ./src/video_inter.cpp ./src/encoding.cpp ./src/decoding.cpp ./src/utils.cpp
+BINARY := $(BIN_DIR)/video_inter
+
+# Optional flags for encoding
+SEARCH_SIZE ?= 16
+BLOCK_SIZE ?= 8
+FRAMES ?= -1
+LOSSY_RATIO ?= 1.0
+
+# Videos
+VIDEOS := $(wildcard $(VIDEO_DIR)/*.y4m)
 
 # Targets
-.PHONY: all clean encode encode_block encode_frame decode directories
+.PHONY: all clean encode decode directories
+
+all: directories $(BINARY) encode decode
 
 directories:
 	@mkdir -p $(BIN_DIR) $(ENCODED_DIR) $(OUTPUT_DIR) $(LOG_DIR)
-	@touch $(BLOCK_LOG_DECODE) $(BLOCK_LOG_DECODE) $(FRAME_LOG_DECODE) $(FRAME_LOG_ENCODE)
+	@touch $(ENCODE_LOG) $(DECODE_LOG)
 
-all: compile encode decode
+$(BINARY): $(SOURCES)
+	$(CXX) -o $@ $^ $(CXXFLAGS) $(LDFLAGS)
 
-compile: directories $(BINARIES)
-
-$(BIN_DIR)/%: $(SRC_DIR)/%.cpp
-	$(CXX) $(CXXFLAGS) -o $@ $< $(LDFLAGS)
-
-# Split encode into two separate targets
-encode: encode_block encode_frame
-
-# Encode using video_block
-encode_block: directories $(BIN_DIR)/video_block
+# Encode target
+encode: directories $(BINARY)
 	@for video in $(VIDEOS); do \
 		filename=$$(basename $$video .y4m); \
-		output=$(ENCODED_DIR)/$${filename}_video_block.enc; \
-		echo "Encoding $$video with bin/video_block -> $$output"; \
-		$(BIN_DIR)/video_block -encode $$video $$output -v >> $(BLOCK_LOG_ENCODE) 2>&1; \
+		output=$(ENCODED_DIR)/$${filename}_inter.enc; \
+		echo "Encoding $$video with $(BINARY) -> $$output"; \
+		$(BINARY) -encode $$video $$output -s $(SEARCH_SIZE) -b $(BLOCK_SIZE) -f $(FRAMES) -l $(LOSSY_RATIO) >> $(ENCODE_LOG) 2>&1; \
 	done
 
-# Encode using video_frame
-encode_frame: directories $(BIN_DIR)/video_frame
-	@for video in $(VIDEOS); do \
-		filename=$$(basename $$video .y4m); \
-		output=$(ENCODED_DIR)/$${filename}_video_frame_m$(M).enc; \
-		echo "Encoding $$video with bin/video_frame (m=$(M)) -> $$output"; \
-		$(BIN_DIR)/video_frame -encode $$video $$output $(M) >> $(FRAME_LOG_ENCODE) 2>&1; \
-	done
-
-# Decode all encoded videos
-decode: directories $(BINARIES)
+# Decode target
+decode: directories $(BINARY)
 	@for encoded in $(wildcard $(ENCODED_DIR)/*.enc); do \
-		filename=$$(basename $$encoded | sed 's/_m[0-9]\+\.enc$$//'); \
-		if [[ $$encoded == *"video_frame"* ]]; then \
-			output=$(OUTPUT_DIR)/$${filename}_decoded.y4m; \
-			echo "Decoding $$encoded with bin/video_frame -> $$output"; \
-			$(BIN_DIR)/video_frame -decode $$encoded $$output >> $(FRAME_LOG_DECODE) 2>&1; \
-		else \
-			output=$(OUTPUT_DIR)/$${filename}_decoded.y4m; \
-			echo "Decoding $$encoded with bin/video_block -> $$output"; \
-			$(BIN_DIR)/video_block -decode $$encoded $$output -v >> $(BLOCK_LOG_DECODE) 2>&1; \
-		fi; \
+		filename=$$(basename $$encoded .enc); \
+		output=$(OUTPUT_DIR)/$${filename}_decoded.y4m; \
+		echo "Decoding $$encoded with $(BINARY) -> $$output"; \
+		$(BINARY) -decode $$encoded $$output >> $(DECODE_LOG) 2>&1; \
 	done
 
 clean:
@@ -83,9 +66,12 @@ clean:
 
 help:
 	@echo "Usage:"
-	@echo "  make all              - Compile all binaries"
-	@echo "  make encode          - Run both encoders"
-	@echo "  make encode_block    - Run only video_block encoder"
-	@echo "  make encode_frame M=<value>  - Run only video_frame encoder (default m=3)"
-	@echo "  make decode          - Decode all encoded videos"
-	@echo "  make clean           - Remove all generated files"
+	@echo "  make all                     - Compile the video_inter binary"
+	@echo "  make encode                  - Encode all videos in $(VIDEO_DIR)"
+	@echo "      Optional flags for encode:"
+	@echo "        SEARCH_SIZE=<value>    - Set search size (default: 16)"
+	@echo "        BLOCK_SIZE=<value>     - Set block size (default: 8)"
+	@echo "        FRAMES=<value>         - Set frame period (default: 0)"
+	@echo "        LOSSY_RATIO=<value>    - Set lossy ratio (default: 1.0)"
+	@echo "  make decode                  - Decode all encoded videos in $(ENCODED_DIR)"
+	@echo "  make clean                   - Remove all generated files"
