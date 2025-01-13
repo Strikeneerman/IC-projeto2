@@ -43,7 +43,8 @@ struct BlockMatchingParams {
 // Main encoding/decoding functions
     void encodeRawVideo(const std::string& inputFile,
                             const std::string& outputFile,
-                            const BlockMatchingParams& params = BlockMatchingParams());
+                            const BlockMatchingParams& params = BlockMatchingParams(),
+                            int frame_period = -1);
 
     void decodeRawVideo(const std::string& inputFile,
                             const std::string& outputFile);
@@ -55,7 +56,8 @@ struct BlockMatchingParams {
                         double elapsedTime);
 
 // Helper functions for frame processing
-    void parseY4MHeader(std::ifstream& input, int& width, int& height, int& frame_count);
+    void parseY4MHeader(std::ifstream& input, int& width, int& height, int& frame_count,
+                   int& uvWidth, int& uvHeight, int& uvFrameSize, int& yFrameSize);
     int countY4MFrames(ifstream& input);
     int predictPixel(const cv::Mat& image, int x, int y);
 

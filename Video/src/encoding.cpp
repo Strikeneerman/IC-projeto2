@@ -4,7 +4,7 @@
 void encodeFrameIntra(const Mat& frame, BitStream& stream) {
     vector<int> residuals;
     residuals.reserve(frame.rows * frame.cols);
-    stream.writeBit(0);
+
     // First pass: collect residuals and calculate optimal m
     for (int y = 0; y < frame.rows; ++y) {
         for (int x = 0; x < frame.cols; ++x) {
@@ -123,7 +123,8 @@ void encodeFrameInter(const Mat& currentFrame, const Mat& referenceFrame,
 
 void encodeRawVideo(const std::string& inputFile,
                    const std::string& outputFile,
-                   const BlockMatchingParams& params) {
+                   const BlockMatchingParams& params,
+                   int frame_period) {
     ifstream input(inputFile, ios::binary);
     BitStream stream(outputFile, true);
     if (!input) {
@@ -143,21 +144,20 @@ void encodeRawVideo(const std::string& inputFile,
         stream.writeBits(static_cast<int>(c), 8);
     }
 
-    int width, height, frame_count = 0, frameCount = 0;
-    parseY4MHeader(input, width, height, frame_count);
+
+    int width, height, uvWidth, uvHeight, uvFrameSize, yFrameSize ,frame_count = 0, frameCount = 0;
+
+    parseY4MHeader(input, width, height, frame_count, uvWidth, uvHeight, uvFrameSize, yFrameSize);
 
     // Write header information
     stream.writeBits(width, 16);
     stream.writeBits(height, 16);
+    stream.writeBits(uvWidth, 16);
+    stream.writeBits(uvHeight, 16);
     stream.writeBits(frame_count, 32);
     stream.writeBits(params.blockSize, 8);
     stream.writeBits(params.searchRange, 8);
 
-
-    int yFrameSize = width * height;
-    int uvWidth = width / 2;                // TO DO Make this dependent on file header and not hardcoded
-    int uvHeight = height / 2;
-    int uvFrameSize = uvWidth * uvHeight;
 
     vector<unsigned char> yPlane(yFrameSize);
     vector<unsigned char> uPlane(uvFrameSize);
@@ -197,10 +197,15 @@ void encodeRawVideo(const std::string& inputFile,
                 break;
             }
 
-            // Determine frame type
-            bool isIntra = (frameCount % 8 == 0);  // Every 8th frame is intra
+            bool doIntra = false;
+            if(frameCount == 0) doIntra = true;
+            else if(frame_period == -1) doIntra = false;
+            else if(frame_period == 0) doIntra = true;
+            else if(frameCount % frame_period == 0) doIntra = true;
 
-            if (isIntra) {
+            stream.writeBits(doIntra ? 0 : 1, 1);
+
+            if (doIntra) {
                 encodeFrameIntra(currentFrameY, stream);
                 encodeFrameIntra(currentFrameU, stream);
                 encodeFrameIntra(currentFrameV, stream);

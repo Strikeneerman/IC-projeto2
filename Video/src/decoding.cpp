@@ -33,30 +33,41 @@ void decodeFrameInter(Mat& frame, const Mat& referenceFrame,
             int currentBlockHeight = min(params.blockSize, rows - y);
             int currentBlockWidth = min(params.blockSize, cols - x);
 
+            bool useInter = (stream.readBit() == 1);
+
             // Read m value for this block
             int blockM = stream.readBits(8);
             Golomb golomb(blockM, false);
 
-            // Decode motion vector
-            int dx = golomb.decode(stream);
-            int dy = golomb.decode(stream);
-            MotionVector mv(dx, dy);
+            if(useInter){
+                // Decode motion vector
+                int dx = golomb.decode(stream);
+                int dy = golomb.decode(stream);
+                MotionVector mv(dx, dy);
 
-            // Get predicted block from reference frame
-            Mat predictedBlock = getPredictedBlock(referenceFrame, x, y,
-                                                currentBlockWidth, currentBlockHeight,
-                                                mv);
+                // Get predicted block from reference frame
+                Mat predictedBlock = getPredictedBlock(referenceFrame, x, y,
+                                                    currentBlockWidth, currentBlockHeight,
+                                                    mv);
 
-            // Decode residuals and reconstruct the block
-            for (int by = 0; by < currentBlockHeight; ++by) {
-                for (int bx = 0; bx < currentBlockWidth; ++bx) {
-                    int residual = golomb.decode(stream);
-                    frame.at<uchar>(y + by, x + bx) = saturate_cast<uchar>(
-                        predictedBlock.at<uchar>(by, bx) + residual
-                    );
+                // Decode residuals and reconstruct the block
+                for (int by = 0; by < currentBlockHeight; ++by) {
+                    for (int bx = 0; bx < currentBlockWidth; ++bx) {
+                        int residual = golomb.decode(stream);
+                        frame.at<uchar>(y + by, x + bx) = saturate_cast<uchar>(
+                            predictedBlock.at<uchar>(by, bx) + residual
+                        );
+                    }
+                }
+            } else {
+                for (int by = 0; by < currentBlockHeight; ++by) {
+                    for (int bx = 0; bx < currentBlockWidth; ++bx) {
+                        int residual = golomb.decode(stream);
+                        int predicted = predictPixel(frame, x, y);
+                        frame.at<uchar>(y, x) = saturate_cast<uchar>(residual + predicted);
+                    }
                 }
             }
-
         }
     }
 }
@@ -71,6 +82,8 @@ void decodeRawVideo(const string& inputFile, const string& outputFile) {
     }
     int width = stream.readBits(16);
     int height = stream.readBits(16);
+    int uvWidth = stream.readBits(16);
+    int uvHeight = stream.readBits(16);
     int frame_count = stream.readBits(32);
     int blockSize = stream.readBits(8);
     int searchRange = stream.readBits(8);
@@ -81,8 +94,6 @@ void decodeRawVideo(const string& inputFile, const string& outputFile) {
     output << header << endl;
 
     int yFrameSize = width * height;
-    int uvWidth = width / 2;
-    int uvHeight = height / 2;
     int uvFrameSize = uvWidth * uvHeight;
 
     // Matrices for the current frame and reference frame
