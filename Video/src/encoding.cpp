@@ -1,7 +1,7 @@
 
 #include "VideoCodec.h"
 
-void encodeFrameIntra(const Mat& frame, BitStream& stream, int shiftBits) {
+void encodeFrameIntra(Mat& frame, BitStream& stream, int shiftBits) {
     vector<int> residuals;
     residuals.reserve(frame.rows * frame.cols);
 
@@ -12,6 +12,7 @@ void encodeFrameIntra(const Mat& frame, BitStream& stream, int shiftBits) {
             int residual = frame.at<uchar>(y, x) - predicted;
             residual >>= shiftBits;
             residuals.push_back(residual);
+            frame.at<uchar>(y, x) = predicted + (residual << shiftBits);
         }
     }
 
@@ -37,7 +38,7 @@ void encodeFrameIntra(const Mat& frame, BitStream& stream, int shiftBits) {
     }
 }
 
-void encodeFrameInter(const Mat& currentFrame, const Mat& referenceFrame,
+void encodeFrameInter(Mat& currentFrame, const Mat& referenceFrame,
                      BitStream& stream,
                      unsigned long long& counter1, unsigned long long& counter2,
                      int shiftBits,
@@ -73,16 +74,25 @@ void encodeFrameInter(const Mat& currentFrame, const Mat& referenceFrame,
             residualsInter.reserve(currentBlockHeight * currentBlockWidth);
             residualsIntra.reserve(currentBlockHeight * currentBlockWidth);
 
+            Mat currentBlockInter(currentBlockHeight, currentBlockWidth, currentBlock.type());
+            Mat currentBlockIntra = currentFrame(
+                Range(y, y + currentBlockHeight),
+                Range(x, x + currentBlockWidth)
+            );
+
             for (int by = 0; by < currentBlockHeight; ++by) {
                 for (int bx = 0; bx < currentBlockWidth; ++bx) {
                     int residualInter = currentBlock.at<uchar>(by, bx) - predictedBlockInter.at<uchar>(by, bx);
-                    int residualIntra = currentBlock.at<uchar>(by, bx) - predictPixel(currentFrame, x + bx, y + by);
+                    int residualIntra = currentBlock.at<uchar>(by, bx) - predictPixel(currentBlockIntra, bx, by);
 
                     residualInter >>= shiftBits;
                     residualIntra >>= shiftBits;
 
                     residualsInter.push_back(residualInter);
                     residualsIntra.push_back(residualIntra);
+
+                    currentBlockInter.at<uchar>(by, bx) = predictedBlockInter.at<uchar>(by, bx) + (residualInter << shiftBits);
+                    currentBlockIntra.at<uchar>(by, bx) = predictPixel(currentBlockIntra, bx, by) + (residualIntra << shiftBits);
                 }
             }
 
@@ -97,18 +107,21 @@ void encodeFrameInter(const Mat& currentFrame, const Mat& referenceFrame,
             int blockM;
             bool useInter;
             if(averageInter < averageIntra){
-                useInter = true;
                 counter1++;
+                useInter = true;
+                stream.writeBit(1);
+
                 blockResiduals = residualsInter;
                 blockM = static_cast<int>(std::ceil(-1 / std::log2(1 - (1 / (averageInter + 1)))));
-                stream.writeBit(1);
+                currentFrame(Range(y, y + currentBlockInter.rows), Range(x, x + currentBlockInter.cols)) = currentBlockInter;
             } else {
-                //cout << "intra block in inter frame!" << endl;
-                useInter = false;
                 counter2++;
+                useInter = false;
+                stream.writeBit(0);
+
                 blockResiduals = residualsIntra;
                 blockM = static_cast<int>(std::ceil(-1 / std::log2(1 - (1 / (averageIntra + 1)))));
-                stream.writeBit(0);
+                currentFrame(Range(y, y + currentBlockIntra.rows), Range(x, x + currentBlockIntra.cols)) = currentBlockIntra;
             }
             blockM = max(2, min(blockM, 64));
 
@@ -169,6 +182,7 @@ void encodeRawVideo( array<unsigned long long, 8>& stats,
     stream.writeBits(frame_count, 32);
     stream.writeBits(params.blockSize, 8);
     stream.writeBits(params.searchRange, 8);
+
 
 
     vector<unsigned char> yPlane(yFrameSize);

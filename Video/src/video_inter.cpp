@@ -16,10 +16,10 @@ int main(int argc, char** argv) {
         string outputFile = argv[3];
 
         // Default values
-        int searchSize = 32;    // Default search area
-        int blockSize = 4;      // Default block size
+        int blockSize = 32;      // Default block size
+        int searchRange = 4;    // Default search area
         int frames = 7;         // Default frames
-        float lossyRatio = 1.0; // Default lossy ratio (1.0 means lossless)
+        int q_bits = 1; 
 
         // Parse optional arguments
         for (int i = 4; i < argc; i += 2) {
@@ -32,7 +32,7 @@ int main(int argc, char** argv) {
 
             try {
                 if (param == "-s" || param == "-search") {
-                    searchSize = stoi(argv[i + 1]);
+                    searchRange = stoi(argv[i + 1]);
                 }
                 else if (param == "-b" || param == "-block") {
                     blockSize = stoi(argv[i + 1]);
@@ -41,11 +41,7 @@ int main(int argc, char** argv) {
                     frames = stoi(argv[i + 1]);
                 }
                 else if (param == "-l" || param == "-lossy") {
-                    lossyRatio = stof(argv[i + 1]);
-                    if (lossyRatio <= 0.0 || lossyRatio > 1.0) {
-                        cout << "Error: Lossy ratio must be between 0.0 and 1.0" << endl;
-                        return 1;
-                    }
+                    q_bits = stoi(argv[i + 1]);
                 }
                 else {
                     cout << "Unknown parameter: " << param << endl;
@@ -62,10 +58,10 @@ int main(int argc, char** argv) {
             }
         }
 
-        BlockMatchingParams params = BlockMatchingParams(searchSize, blockSize);
+        BlockMatchingParams params = BlockMatchingParams(blockSize, searchRange);
         array<unsigned long long, 8> stats;
         stats.fill(0);
-        encodeRawVideo(stats, inputFile, outputFile, params, frames, 0);
+        encodeRawVideo(stats, inputFile, outputFile, params, frames, q_bits);
 
         auto endTime = chrono::high_resolution_clock::now();
         double elapsedTime = chrono::duration<double>(endTime - startTime).count();
