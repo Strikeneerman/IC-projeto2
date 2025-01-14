@@ -16,10 +16,10 @@ int main(int argc, char** argv) {
         string outputFile = argv[3];
 
         // Default values
-        int blockSize = 32;      // Default block size
-        int searchRange = 4;    // Default search area
+        int blockSize = 16;      // Default block size
+        int searchRange = 8;    // Default search area
         int frames = 7;         // Default frames
-        int q_bits = 1; 
+        int q_bits = 0; 
 
         // Parse optional arguments
         for (int i = 4; i < argc; i += 2) {
@@ -79,7 +79,7 @@ int main(int argc, char** argv) {
 
     } else {
         cout << "Invalid arguments. Please use the following format:\n";
-        cout << "./video_frame -encode <input_raw_video> <output_encoded_file> [-s search_size] [-b block_size] [-f frames] [-l lossy_ratio]\n";
+        cout << "./video_frame -encode <input_raw_video> <output_encoded_file> [-s search_size] [-b block_size] [-f frames] [-l lost_bits]\n";
         cout << "./video_frame -decode <input_encoded_file> <output_raw_video>\n";
     }
 
