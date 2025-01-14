@@ -6,8 +6,8 @@ using namespace cv;
 
 void parseY4MHeader(ifstream& input, int& width, int& height, int& frame_count,
                    int& uvWidth, int& uvHeight, int& uvFrameSize, int& yFrameSize) {
-    input.clear();  // Clear any EOF flags
-    input.seekg(0, ios::beg);  // Move the file pointer back to the beginning
+    input.clear();
+    input.seekg(0, ios::beg);
 
     frame_count = countY4MFrames(input);
     input.clear();
@@ -16,43 +16,34 @@ void parseY4MHeader(ifstream& input, int& width, int& height, int& frame_count,
     string line;
     getline(input, line);
 
-    // Regex to capture width, height and C parameter
-    regex re(R"(YUV4MPEG2\s+W(\d+)\s+H(\d+)(?:\s+C([^\s]+))?)");
+    // Updated regex to handle fields properly
+    regex re(R"(YUV4MPEG2\s+W(\d+)\s+H(\d+)(?:\s+\S+)*\s+C([^\s]+))");
     smatch match;
 
     if (regex_search(line, match, re)) {
         width = stoi(match[1].str());
         height = stoi(match[2].str());
-
-        // Default to 420 if no C parameter is present
-        string cParam = match[3].matched ? match[3].str() : "420";
-
-        // Set UV dimensions based on chroma format
+        string cParam = match[3].str();
+        cout<<"cParam: "<<cParam<<endl;
         if (cParam == "420" || cParam == "420jpeg" || cParam == "420mpeg2" || cParam == "420paldv") {
             uvWidth = width / 2;
             uvHeight = height / 2;
-        }
-        else if (cParam == "422") {
+        } else if (cParam == "422") {
             uvWidth = width / 2;
             uvHeight = height;
-        }
-        else if (cParam == "444") {
+        } else if (cParam == "444") {
             uvWidth = width;
             uvHeight = height;
-        }
-        else if (cParam == "440") {
+        } else if (cParam == "440") {
             uvWidth = width;
             uvHeight = height / 2;
-        }
-        else if (cParam == "411") {
+        } else if (cParam == "411") {
             uvWidth = width / 4;
             uvHeight = height;
-        }
-        else if (cParam == "mono") {
+        } else if (cParam == "mono") {
             uvWidth = 0;
             uvHeight = 0;
-        }
-        else {
+        } else {
             cerr << "Warning: Unknown chroma sampling format '" << cParam << "', defaulting to 4:2:0" << endl;
             uvWidth = width / 2;
             uvHeight = height / 2;
@@ -62,8 +53,18 @@ void parseY4MHeader(ifstream& input, int& width, int& height, int& frame_count,
         yFrameSize = width * height;
 
     } else {
-        cerr << "Error: Invalid Y4M header format." << endl;
-        exit(1);
+        regex re(R"(YUV4MPEG2\s+W(\d+)\s+H(\d+)(?:\s+C([^\s]+))?)");
+        if (regex_search(line, match, re)) {
+            width = stoi(match[1].str());
+            height = stoi(match[2].str());
+            uvWidth = width / 2;
+            uvHeight = height / 2;
+            uvFrameSize = uvWidth * uvHeight;
+            yFrameSize = width * height;
+        } else {
+            cerr << "Error: Invalid Y4M header format." << endl;
+            exit(1);
+        }
     }
 }
 
