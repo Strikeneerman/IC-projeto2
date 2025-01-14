@@ -66,7 +66,7 @@ clean:
 
 help:
 	@echo "Usage:"
-	@echo "  make all                     - Compile the video_inter binary"
+	@echo "  make all                     - Compile the video_inter binary encode and decode all videos"
 	@echo "  make encode                  - Encode all videos in $(VIDEO_DIR)"
 	@echo "      Optional flags for encode:"
 	@echo "        SEARCH_SIZE=<value>    - Set search size (default: 16)"
